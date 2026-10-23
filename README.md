@@ -1,7 +1,9 @@
-# Terraform setup
+# Azure Ops Dashboard: Terraform module
 
-The deployment is a module, `modules/dashboard`. This folder is a ready-made root configuration that calls it;
-you can also call the module from your own configuration (see [Use the module](#use-the-module)).
+Deploys [Azure Ops Dashboard](https://hub.docker.com/r/trozity/azure-ops-dashboard) (a self-hosted dashboard of
+read-only Azure and Entra ID tenant checks) to Azure App Service. The module is the root of this repo;
+[examples/default](examples/default) is a ready-made root configuration that calls it, or call it from your own
+configuration (see [Use the module](#use-the-module)).
 It needs Terraform 1.6 or newer and azurerm 5.x (azuread 3.x, random 3.x).
 
 One `apply` creates:
@@ -25,7 +27,7 @@ One `apply` creates:
   by default (`secret_vault_purge_protection`), so a deleted deployment can reuse the name.
 
 Every identity's permissions, including the app registration each customer makes in their own tenant, are listed in
-[docs/permissions.md](../../docs/permissions.md).
+[docs/permissions.md](docs/permissions.md).
 
 ## Shared SPN access
 
@@ -80,7 +82,7 @@ and the storage container `dashboard-<key>`. With at least one customer, Terrafo
 - a storage container per customer.
 
 In each customer tenant, by hand: register an app, give it a client secret, the Graph application permissions with
-admin consent and Reader, Cost Management Reader and Key Vault Reader ([details](../../docs/permissions.md#customer-tenant-app-other-tenants)).
+admin consent and Reader, Cost Management Reader and Key Vault Reader ([details](docs/permissions.md#customer-tenant-app-other-tenants)).
 Set its `client_id` and apply again (or enter it in Settings), and paste the secret in the dashboard's Settings →
 Customer tenants → Edit. The secret goes to the secret vault and is never a Terraform value, so it stays out of
 the state. `terraform output customer_onboarding` prints the steps and
@@ -136,7 +138,7 @@ empty. Which scans caused the load is on the dashboard's Server load page (Admin
 
 ## Who can run it
 
-(All in one table in [docs/permissions.md](../../docs/permissions.md#whoever-runs-terraform).)
+(All in one table in [docs/permissions.md](docs/permissions.md#whoever-runs-terraform).)
 
 - `Contributor` on the subscription for the app itself.
 - `Owner`, `User Access Administrator` or `Role Based Access Control Administrator` on each `shared_spn_access` scope,
@@ -190,7 +192,7 @@ application permissions for the `web_app_principal_id` output.
 ## Run
 
 ```
-cd infra/terraform
+cd examples/default
 copy terraform.tfvars.example terraform.tfvars   # then fill it in
 az login
 terraform init
@@ -199,10 +201,10 @@ terraform apply
 ```
 
 Open the `url` output and sign in. State is local by default; for a team, add an `azurerm` backend
-(storage account) to `versions.tf`.
+(storage account) to `examples/default/versions.tf`.
 
 **Upgrading an existing deployment** (from before the module): run `terraform init -upgrade`, then `plan`. The
-`moved` blocks in `main.tf` carry the resources over to `module.dashboard`, so the plan should show moves and
+`moved` blocks in `examples/default/main.tf` carry the resources over to `module.dashboard`, so the plan should show moves and
 no replacements.
 
 **Upgrading to 0.12:** the apply adds the secret vault and its role assignment (register `Microsoft.KeyVault` if
@@ -222,7 +224,7 @@ provider "azurerm" {
 }
 
 module "dashboard" {
-  source = "github.com/Gooseankles/azure-ops-dashboard//infra/terraform/modules/dashboard?ref=v0.21.2.0"
+  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.0.0"
 
   name     = "contoso-azure-tools"
   location = "norwayeast"
@@ -238,13 +240,13 @@ output "url" {
 }
 ```
 
-`?ref=` picks the module version. Every version has a git tag `v<version>` (see the repo's tags), so pin one and
-raise it when you choose to upgrade; `?ref=main` follows every push. The tag pins the infrastructure only: the app
+`?ref=` picks the module version. Every release has a git tag `v<major>.<minor>.<patch>` (see the repo's tags), so
+pin one and raise it when you choose to upgrade; `?ref=main` follows every push. The tag pins the infrastructure only: the app
 image is the `image` input (default `trozity/azure-ops-dashboard:latest`), so set it to `:stable` or a version such
-as `:0.21.2.0` to pin the app too. Inputs are in `modules/dashboard/variables.tf`, outputs
+as `:0.21.2.0` to pin the app too. Inputs are in `variables.tf`, outputs
 (`url`, `web_app_id`, `web_app_principal_id`, `shared_spn_role_assignments`, `resource_group_name`, the SSO values,
 `history_storage_url`, `secret_vault_uri`, `role_groups`, `customer_onboarding`, `customer_containers` and
-`private_network`) in `modules/dashboard/outputs.tf`.
+`private_network`) in `outputs.tf`.
 
 ## Policy check
 

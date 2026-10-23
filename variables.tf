@@ -1,13 +1,3 @@
-variable "subscription_id" {
-  description = "Subscription the dashboard itself (resource group, plan, web app) is created in."
-  type        = string
-}
-
-variable "scan_scopes" {
-  description = "Old name, kept so existing tfvars keep working: each scope gets Reader, Cost Management Reader and Key Vault Reader, same as a shared_spn_access entry without roles. Use shared_spn_access instead."
-  type        = list(string)
-  default     = []
-}
 variable "name" {
   description = "Web app name; must be globally unique. The site becomes https://<name>.azurewebsites.net."
   type        = string
@@ -67,8 +57,7 @@ variable "scan_subscription_ids" {
 variable "grant_graph_permissions" {
   description = <<-EOT
     Give the system-assigned identity the Microsoft Graph application permissions the tools use (user and group
-    names, group members, app registration secrets, access packages, directory roles, sign-in activity, Conditional
-    Access and consent settings, delegated consents). Needs a Privileged Role Administrator or
+    names, group members, app registration secrets, access packages). Needs a Privileged Role Administrator or
     Global Administrator running terraform.
   EOT
   type        = bool
@@ -221,13 +210,22 @@ variable "extra_app_settings" {
 }
 
 variable "allowed_ip_ranges" {
-  description = "Public IPs or CIDR ranges that may reach the web app. Empty (with empty allowed_subnet_ids) = open to the internet."
+  description = <<-EOT
+    Public IPs or CIDR ranges that may reach the web app ("Enabled from selected virtual networks and IP
+    addresses"), e.g. ["203.0.113.10", "198.51.100.0/24"]. A bare address means that one address. Empty, together
+    with an empty allowed_subnet_ids, = open to the internet (sign-in still required).
+  EOT
   type        = list(string)
   default     = []
+
+  validation {
+    condition     = alltrue([for ip in var.allowed_ip_ranges : can(cidrhost(strcontains(ip, "/") ? ip : (strcontains(ip, ":") ? "${ip}/128" : "${ip}/32"), 0))])
+    error_message = "Each allowed_ip_ranges entry must be an IP address or a CIDR range, e.g. 203.0.113.10 or 198.51.100.0/24."
+  }
 }
 
 variable "allowed_subnet_ids" {
-  description = "Subnet resource IDs that may reach the web app (needs the Microsoft.Web service endpoint on the subnet)."
+  description = "Subnet resource IDs whose traffic may reach the web app (the subnet needs the Microsoft.Web service endpoint). Used together with allowed_ip_ranges."
   type        = list(string)
   default     = []
 }

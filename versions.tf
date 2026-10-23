@@ -4,33 +4,19 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 5.0"
+      version = ">= 5.0, < 6.0"
     }
     azuread = {
       source  = "hashicorp/azuread"
-      version = "~> 3.0"
+      version = ">= 3.0, < 4.0"
     }
     random = {
       source  = "hashicorp/random"
-      version = "~> 3.6"
+      version = ">= 3.6, < 4.0"
     }
   }
 }
 
-provider "azurerm" {
-  features {}
-  subscription_id = var.subscription_id
-  # The history storage account has account keys turned off.
-  storage_use_azuread = true
-  # azurerm 5 registers no resource providers by default; these are the ones
-  # the module uses (registering needs rights on the subscription; remove the
-  # line if they are registered already and you lack those rights).
-  resource_providers_to_register = [
-    "Microsoft.Web",
-    "Microsoft.Storage",
-    "Microsoft.ManagedIdentity",
-    "Microsoft.KeyVault",
-  ]
-}
-
-provider "azuread" {}
+# Providers come from the caller. The azurerm provider needs
+# storage_use_azuread = true when create_history_storage is on (the storage
+# account has account keys turned off).
