@@ -121,6 +121,21 @@ linked to the VNet), and their public network access is turned off. To use an ex
 `vnet_integration_subnet_id` (delegated to `Microsoft.Web/serverFarms`), `private_endpoint_subnet_id` and, if the
 DNS zones live in a hub, `blob_private_dns_zone_id` and `vault_private_dns_zone_id`. `vnet_route_all = true` sends all outbound traffic through the VNet (it then needs a
 NAT gateway or firewall for internet access). The App Service plan must support VNet integration (Basic or higher).
+
+Without private endpoints:
+
+```hcl
+private_network            = true
+private_access             = "service_endpoint"
+vnet_integration_subnet_id = "/subscriptions/.../virtualNetworks/vnet-spoke/subnets/snet-dashboard"
+```
+
+The storage account and the secret vault keep their public endpoints, but their firewalls deny everything except
+the integration subnet (through the `Microsoft.Storage` and `Microsoft.KeyVault` service endpoints). No private
+endpoints, private DNS zones or second subnet. An existing subnet needs both service endpoints turned on before the
+apply (a created one gets them). The app's traffic to them goes through the VNet even with `vnet_route_all = false`.
+The storage account must be in the VNet's region or its paired region. Trusted Azure services stay allowed, as with
+private endpoints; they still need a role to read anything.
 Terraform creates the containers through the storage data plane, so run it from a network that can reach the
 private endpoint, or apply once with `private_network = false` first so the containers exist.
 

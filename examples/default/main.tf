@@ -46,6 +46,7 @@ module "dashboard" {
   role_group_prefix  = var.role_group_prefix
 
   private_network            = var.private_network
+  private_access             = var.private_access
   vnet_address_space         = var.vnet_address_space
   vnet_integration_subnet_id = var.vnet_integration_subnet_id
   private_endpoint_subnet_id = var.private_endpoint_subnet_id

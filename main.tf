@@ -162,15 +162,16 @@ resource "azurerm_storage_account" "history" {
   allow_nested_items_to_be_public = false
   shared_access_key_enabled       = false # Entra (managed identity) only
   default_to_oauth_authentication = true
-  # private_network: only the private endpoint reaches it.
-  public_network_access = var.private_network ? "Disabled" : "Enabled"
+  # private_network: only the private endpoint reaches it, or (service endpoints) only the integration subnet.
+  public_network_access = local.history_private ? "Disabled" : "Enabled"
   tags                  = var.tags
 
   dynamic "network_rules" {
     for_each = var.private_network ? [1] : []
     content {
-      default_action = "Deny"
-      bypass         = ["AzureServices"]
+      default_action             = "Deny"
+      bypass                     = ["AzureServices"]
+      virtual_network_subnet_ids = local.service_endpoint_subnet_ids
     }
   }
 

@@ -96,11 +96,12 @@ output "customer_onboarding" {
 }
 
 output "private_network" {
-  description = "VNet integration subnet and storage private endpoint (null when private_network = false)."
+  description = "VNet integration subnet, how storage and the vault are reached, and their private endpoints (null when private_network = false)."
   value = var.private_network ? {
     app_subnet_id         = local.app_subnet_id
+    private_access        = var.private_access
     private_endpoint_id   = local.history_private ? azurerm_private_endpoint.history_blob[0].id : null
     vault_endpoint_id     = local.vault_private ? azurerm_private_endpoint.secret_vault[0].id : null
-    storage_public_access = "Disabled"
+    storage_public_access = local.history_private ? "Disabled" : "Enabled, integration subnet only"
   } : null
 }

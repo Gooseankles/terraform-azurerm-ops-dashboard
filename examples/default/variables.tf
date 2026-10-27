@@ -307,6 +307,24 @@ variable "private_network" {
   default     = false
 }
 
+variable "private_access" {
+  description = <<-EOT
+    How the web app reaches the history storage account and the secret vault when private_network = true.
+    "private_endpoint": private endpoints and private DNS zones, public network access off.
+    "service_endpoint": no private endpoints or DNS zones; the integration subnet gets the Microsoft.Storage and
+    Microsoft.KeyVault service endpoints and both firewalls let in that subnet only (an existing subnet needs both
+    service endpoints turned on first). Cheaper and simpler; the storage account must be in the VNet's region or
+    its paired region.
+  EOT
+  type        = string
+  default     = "private_endpoint"
+
+  validation {
+    condition     = contains(["private_endpoint", "service_endpoint"], var.private_access)
+    error_message = "private_access must be \"private_endpoint\" or \"service_endpoint\"."
+  }
+}
+
 variable "vnet_address_space" {
   description = "Address space of the VNet created when private_network = true and no subnets are given. A /24 is plenty: a /26 for the app and a /27 for private endpoints."
   type        = list(string)
@@ -314,13 +332,13 @@ variable "vnet_address_space" {
 }
 
 variable "vnet_integration_subnet_id" {
-  description = "Existing subnet for the web app's VNet integration (delegated to Microsoft.Web/serverFarms, /28 or larger). Set together with private_endpoint_subnet_id; blank = create a VNet."
+  description = "Existing subnet for the web app's VNet integration (delegated to Microsoft.Web/serverFarms, /28 or larger). With private endpoints set together with private_endpoint_subnet_id; blank = create a VNet."
   type        = string
   default     = ""
 }
 
 variable "private_endpoint_subnet_id" {
-  description = "Existing subnet for the private endpoints (storage, secret vault). Set together with vnet_integration_subnet_id."
+  description = "Existing subnet for the private endpoints (storage, secret vault). Set together with vnet_integration_subnet_id; not used with private_access = \"service_endpoint\"."
   type        = string
   default     = ""
 }

@@ -1,14 +1,21 @@
 # --- Private network (private_network = true) ---
 #
 # The web app joins a VNet (outbound VNet integration) and reaches the history
-# storage account and the secret vault through private endpoints, so their
-# public network access is off. Either a VNet is created here (vnet_address_space) or existing
-# subnets are used (vnet_integration_subnet_id + private_endpoint_subnet_id).
+# storage account and the secret vault either through private endpoints, with
+# their public network access off (private_access = "private_endpoint"), or
+# through service endpoints on the integration subnet, with their firewalls
+# letting in that subnet only (private_access = "service_endpoint": no private
+# endpoints, DNS zones or second subnet). Either a VNet is created here
+# (vnet_address_space) or existing subnets are used (vnet_integration_subnet_id,
+# plus private_endpoint_subnet_id for private endpoints).
 
 locals {
-  history_private = var.private_network && var.create_history_storage
-  vault_private   = var.private_network && var.create_secret_vault
-  create_vnet     = var.private_network && var.vnet_integration_subnet_id == ""
+  use_private_endpoints = var.private_access == "private_endpoint"
+  history_private       = var.private_network && var.create_history_storage && local.use_private_endpoints
+  vault_private         = var.private_network && var.create_secret_vault && local.use_private_endpoints
+  # Service endpoints: the integration subnet is the only network let in.
+  service_endpoint_subnet_ids = var.private_network && !local.use_private_endpoints ? [local.app_subnet_id] : []
+  create_vnet                 = var.private_network && var.vnet_integration_subnet_id == ""
 
   app_subnet_id = !var.private_network ? null : (local.create_vnet ? azurerm_subnet.app[0].id : var.vnet_integration_subnet_id)
   pe_subnet_id = !(local.history_private || local.vault_private) ? null : (
@@ -42,6 +49,14 @@ resource "azurerm_subnet" "app" {
   virtual_network_name = azurerm_virtual_network.this[0].name
   address_prefixes     = [cidrsubnet(var.vnet_address_space[0], 2, 0)]
 
+  # private_access = "service_endpoint": the storage and vault firewalls let in this subnet.
+  dynamic "service_endpoint" {
+    for_each = local.use_private_endpoints ? [] : ["Microsoft.Storage", "Microsoft.KeyVault"]
+    content {
+      service = service_endpoint.value
+    }
+  }
+
   delegation {
     name = "app-service"
     service_delegation {
@@ -52,7 +67,7 @@ resource "azurerm_subnet" "app" {
 }
 
 resource "azurerm_subnet" "private_endpoints" {
-  count                = local.create_vnet && var.private_endpoint_subnet_id == "" ? 1 : 0
+  count                = local.create_vnet && var.private_endpoint_subnet_id == "" && local.use_private_endpoints ? 1 : 0
   name                 = "snet-private-endpoints"
   resource_group_name  = azurerm_resource_group.this.name
   virtual_network_name = azurerm_virtual_network.this[0].name
