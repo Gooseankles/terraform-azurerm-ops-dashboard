@@ -13,16 +13,15 @@ location        = "norwayeast"
 # --- Scan identity (the web app's own identity, the shared SPN) ---
 
 # Where the shared SPN (used by every tool without its own SPN override) gets
-# access. roles defaults to Reader, Cost Management Reader and Key Vault Reader
-# (vault item names and expiry dates, never secret values), which is all the
+# access. roles defaults to Reader and Cost Management Reader, which is all the
 # scans need. The tenant root management group's ID is the tenant ID.
 # (scan_scopes is the old name of this; still accepted, use this instead.)
 shared_spn_access = [
   { scope = "/providers/Microsoft.Management/managementGroups/00000000-0000-0000-0000-000000000000" },
   # Only some subscriptions instead:
   # { scope = "/subscriptions/00000000-0000-0000-0000-000000000000" },
-  # Without the Key Vault item checks:
-  # { scope = "/subscriptions/<id>", roles = ["Reader", "Cost Management Reader"] },
+  # With the optional Key Vault item check (KEYVAULT_ITEM_CHECK in the app's Settings):
+  # { scope = "/subscriptions/<id>", roles = ["Reader", "Cost Management Reader", "Key Vault Reader"] },
 ]
 
 # Scan only these subscriptions (blank = every one the shared SPN can see).
@@ -62,13 +61,24 @@ user_principal_ids  = []
 # create_role_groups = true
 # role_group_prefix  = "" # blank = "Azure tools dashboard (<name>)"
 
+# Area roles, so each team sees only its own scans: each listed area gets
+# <Area>.Read (read, accept findings) and <Area>.Run (also Run now), each with a
+# group. Leave the member lists out to manage who is in the groups in Entra.
+# area_roles = {
+#   identity = {}
+#   platform = {}
+#   security = {}
+#   cost     = {}
+#   # or with members: security = { read_members = ["<user object id>"], run_members = [] }
+# }
+
 # Break-glass local login; leave blank once SSO works.
 # admin_password = "a-long-random-password"
 
 # --- Customer tenants ---
 
 # Other organizations' tenants to scan too. Each gets a tab, a storage
-# container and the roles Admin-<key> / User-<key>. After apply, send each
+# container and the roles Admin-<key> / User-<key> (and area roles if listed). After apply, send each
 # customer their part of `terraform output customer_onboarding`.
 # customers = {
 #   acme = {
@@ -79,6 +89,7 @@ user_principal_ids  = []
 #     enabled          = true  # false = keep the customer but stop scanning it
 #     admin_members    = []    # user object IDs: read and run Acme's scans
 #     user_members     = []    # user object IDs: read Acme only
+#     area_roles       = {}    # e.g. { security = {} }: Security.Read-acme, Security.Run-acme
 #   }
 # }
 
