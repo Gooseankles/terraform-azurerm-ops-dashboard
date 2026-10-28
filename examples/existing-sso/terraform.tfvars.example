@@ -1,0 +1,29 @@
+subscription_id = "00000000-0000-0000-0000-000000000000"
+name            = "opsdash"
+
+shared_spn_access = [
+  { scope = "/providers/Microsoft.Management/managementGroups/00000000-0000-0000-0000-000000000000" },
+]
+
+# First apply: leave blank and use admin_password. Then send
+# `terraform output -raw sso_app_request` to the Entra team, put the client ID
+# they send back here and apply again.
+sso_app_client_id = ""
+admin_password    = "a-long-random-password"
+
+# Area roles to ask for (Identity.Read, Identity.Run, ...). The Entra team
+# makes a group per role and manages who is in it.
+area_roles = {
+  identity = {}
+  platform = {}
+  security = {}
+  cost     = {}
+}
+
+# customers = {
+#   acme = {
+#     name       = "Acme AS"
+#     tenant_id  = "00000000-0000-0000-0000-000000000000"
+#     area_roles = { security = {} }   # Security.Read-acme, Security.Run-acme
+#   }
+# }

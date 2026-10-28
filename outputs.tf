@@ -52,7 +52,8 @@ output "sso_app_request" {
         value "Admin"  - everything: every tenant, Run now, Settings
         value "User"   - read-only, every tenant%{for k, c in var.customers}
         value "Admin-${k}"  - ${c.name}: read and run its scans
-        value "User-${k}"   - ${c.name}: read-only%{endfor}
+        value "User-${k}"   - ${c.name}: read-only%{endfor}%{for role, r in local.area_role_defs}
+        value "${role}"  - ${r.description}%{endfor}
     - Enterprise application: "Assignment required" = Yes; assign groups (or people) to the roles.
     - Credential, preferred (no secret): Federated credential, scenario "Managed identity" / "Other issuer":
         issuer:   ${local.sso_fic_issuer}
@@ -60,6 +61,19 @@ output "sso_app_request" {
         audience: api://AzureADTokenExchange
       Otherwise a client secret, set as sso_client_secret.
     Send back: the Application (client) ID -> sso_app_client_id.
+  EOT
+}
+
+output "graph_request" {
+  description = "What to ask an Entra admin for when grant_graph_permissions = false: the scan identity's Graph application permissions."
+  value       = var.grant_graph_permissions ? "Not needed: Terraform granted the Graph permissions." : <<-EOT
+    Microsoft Graph application permissions for the Azure tools dashboard (${var.name}) scan identity
+    - Service principal (managed identity) object ID: ${azurerm_linux_web_app.this.identity[0].principal_id}
+    - Application permissions, with admin consent (Privileged Role Administrator or Global Administrator):
+    %{for p in var.graph_permissions}    ${p}
+    %{endfor}- All read-only. No directory role is needed.
+    - With PowerShell: New-MgServicePrincipalAppRoleAssignment for each, resource = Microsoft Graph
+      (appId 00000003-0000-0000-c000-000000000000).
   EOT
 }
 
