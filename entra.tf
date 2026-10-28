@@ -53,12 +53,12 @@ locals {
   role_members = merge([
     for role, r in local.dashboard_roles : { for m in r.members : "${role}|${m}" => { role = role, member = m } }
   ]...)
-  group_prefix = var.role_group_prefix != "" ? var.role_group_prefix : "Azure tools dashboard (${var.name})"
+  group_prefix = var.role_group_prefix != "" ? var.role_group_prefix : "Cirrus Watch (${var.name})"
 }
 
 resource "azuread_application" "dashboard" {
   count            = var.create_sso_app ? 1 : 0
-  display_name     = "Azure tools dashboard (${var.name})"
+  display_name     = "Cirrus Watch (${var.name})"
   sign_in_audience = "AzureADMyOrg"
   owners           = [data.azuread_client_config.current.object_id]
 

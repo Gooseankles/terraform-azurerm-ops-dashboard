@@ -321,7 +321,7 @@ variable "create_role_groups" {
 }
 
 variable "role_group_prefix" {
-  description = "Display name prefix of the role groups. Blank = \"Azure tools dashboard (<name>)\"."
+  description = "Display name prefix of the role groups. Blank = \"Cirrus Watch (<name>)\"."
   type        = string
   default     = ""
 }

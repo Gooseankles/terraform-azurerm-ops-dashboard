@@ -43,7 +43,7 @@ output "sso_app_client_id" {
 output "sso_app_request" {
   description = "What to ask the app-registration team for when create_sso_app = false."
   value       = var.create_sso_app ? "Not needed: Terraform created the app registration." : <<-EOT
-    Sign-in app registration for the Azure tools dashboard (${var.name})
+    Sign-in app registration for Cirrus Watch (${var.name})
     - Single tenant (this organization only).
     - Platform Web, redirect URI: ${local.redirect_uri}
       Front-channel logout / home page: ${local.site_url}
@@ -67,7 +67,7 @@ output "sso_app_request" {
 output "graph_request" {
   description = "What to ask an Entra admin for when grant_graph_permissions = false: the scan identity's Graph application permissions."
   value       = var.grant_graph_permissions ? "Not needed: Terraform granted the Graph permissions." : <<-EOT
-    Microsoft Graph application permissions for the Azure tools dashboard (${var.name}) scan identity
+    Microsoft Graph application permissions for Cirrus Watch (${var.name}) scan identity
     - Service principal (managed identity) object ID: ${azurerm_linux_web_app.this.identity[0].principal_id}
     - Application permissions, with admin consent (Privileged Role Administrator or Global Administrator):
     %{for p in var.graph_permissions}    ${p}
@@ -97,7 +97,7 @@ output "customer_onboarding" {
   value = {
     for k, c in var.customers : k => join("\n", concat([
       "${c.name} (tenant ${c.tenant_id})",
-      "1. In that tenant, register an app (single tenant), e.g. \"Azure tools dashboard\". ${c.client_id != "" ? "Set: ${c.client_id}." : "Then put its Application (client) ID in customers.${k}.client_id (or in Settings) and apply."}",
+      "1. In that tenant, register an app (single tenant), e.g. \"Cirrus Watch\". ${c.client_id != "" ? "Set: ${c.client_id}." : "Then put its Application (client) ID in customers.${k}.client_id (or in Settings) and apply."}",
       "2. On the app: Certificates & secrets > Client secrets > New client secret. Paste its Value in the dashboard:",
       "     Settings > Customer tenants > ${k} > Edit > Client secret (never in Terraform). Note the expiry date.",
       "3. API permissions > Microsoft Graph > Application: ${join(", ", var.graph_permissions)}; then Grant admin consent.",

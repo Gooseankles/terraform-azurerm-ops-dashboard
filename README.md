@@ -1,6 +1,6 @@
-# Azure Ops Dashboard: Terraform module
+# Cirrus Watch: Terraform module
 
-Deploys [Azure Ops Dashboard](https://hub.docker.com/r/trozity/azure-ops-dashboard) (a self-hosted dashboard of
+Deploys [Cirrus Watch](https://hub.docker.com/r/trozity/azure-ops-dashboard) (a self-hosted dashboard of
 read-only Azure and Entra ID tenant checks) to Azure App Service. The module is the root of this repo;
 [examples/default](examples/default) is a ready-made root configuration that calls it, or call it from your own
 configuration (see [Use the module](#use-the-module)).
@@ -99,6 +99,10 @@ identity of another tenant in a federated credential (AADSTS700236).
 `id-<name>-customers` (0.11.0.1) are gone; the next apply deletes them. Federated credentials added to customer
 apps for that identity can be deleted; give each app a client secret instead.
 
+**Upgrading to 1.3.0:** the default names of the sign-in app and the role groups changed from "Azure tools
+dashboard (&lt;name&gt;)" to "Cirrus Watch (&lt;name&gt;)". The next apply renames them in place (same objects, IDs,
+members and assignments). Set `role_group_prefix = "Azure tools dashboard (<name>)"` to keep the old group names.
+
 ## Area roles
 
 So each team sees only its own scans, `area_roles` creates `<Area>.Read` and `<Area>.Run` app roles over every
@@ -196,7 +200,7 @@ empty. Which scans caused the load is on the dashboard's Server load page (Admin
 
 | What | Where in the portal |
 | --- | --- |
-| Sign-in app (roles, redirect URI, federated credential) | App registrations → **Azure tools dashboard (&lt;name&gt;)** |
+| Sign-in app (roles, redirect URI, federated credential) | App registrations → **Cirrus Watch (&lt;name&gt;)** |
 | Scan identity (the shared SPN) and its Graph permissions | Enterprise applications → set **Application type = Managed Identities** → **&lt;name&gt;** (the web app's name) → Permissions |
 | Sign-in identity (trusted by the sign-in app, no permissions) | Enterprise applications → Managed Identities → **id-&lt;name&gt;-sso** |
 

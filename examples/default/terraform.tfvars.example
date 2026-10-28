@@ -59,7 +59,7 @@ user_principal_ids  = []
 
 # A security group per role (needs Entra ID P1/P2); false = assign people directly.
 # create_role_groups = true
-# role_group_prefix  = "" # blank = "Azure tools dashboard (<name>)"
+# role_group_prefix  = "" # blank = "Cirrus Watch (<name>)"
 
 # Area roles, so each team sees only its own scans: each listed area gets
 # <Area>.Read (read, accept findings) and <Area>.Run (also Run now), each with a
