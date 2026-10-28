@@ -314,3 +314,7 @@ the default. Keep it by listing the roles explicitly.
 - Key Vault access policies on access-policy vaults (see above).
 - A web app you already built by hand is not adopted; either `terraform import` it or let Terraform create a
   new one with another `name`.
+
+## License
+
+[MIT](LICENSE). The dashboard itself (Cirrus Watch) is a separate project under its own license.
