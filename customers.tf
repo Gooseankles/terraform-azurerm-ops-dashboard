@@ -22,7 +22,7 @@ locals {
     for k, c in var.customers : k => replace(substr(replace(replace(lower("dashboard-${k}"), "/[^a-z0-9-]/", "-"), "/-+/", "-"), 0, 63), "/-+$/", "")
   }
 
-  scan_roles = ["Reader", "Cost Management Reader", "Key Vault Reader"]
+  scan_roles = ["Reader", "Cost Management Reader"]
 }
 
 

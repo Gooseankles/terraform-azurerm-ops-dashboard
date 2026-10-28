@@ -11,7 +11,7 @@ One `apply` creates:
 - Resource group, Linux App Service plan (B1) and the web app running `trozity/azure-ops-dashboard:latest`
   (port 7070, `/home/data` storage, Always On, HTTPS only, random session secret).
 - **Shared SPN**: the web app's system-assigned identity, used by every tool that has no SPN override in Settings.
-  `shared_spn_access` says where it gets access and with which roles (default Reader, Cost Management Reader and Key Vault Reader,
+  `shared_spn_access` says where it gets access and with which roles (default Reader and Cost Management Reader,
   which is all the scans need), plus the Microsoft Graph application permissions the tools use.
 - **Secretless SSO**: an Entra app registration with the Admin and User roles, "assignment required" on, a
   user-assigned identity attached to the web app, and a federated credential so no client secret exists.
@@ -72,6 +72,9 @@ customers = {
     subscription_ids = []                   # empty = every subscription that app can see there
     admin_members    = ["<user object id>"] # Admin-acme: read and run Acme's scans
     user_members     = ["<user object id>"] # User-acme: read Acme only
+    area_roles = {                          # optional: Security.Read-acme, Security.Run-acme
+      security = { read_members = ["<user object id>"], run_members = [] }
+    }
   }
 }
 ```
@@ -82,7 +85,7 @@ and the storage container `dashboard-<key>`. With at least one customer, Terrafo
 - a storage container per customer.
 
 In each customer tenant, by hand: register an app, give it a client secret, the Graph application permissions with
-admin consent and Reader, Cost Management Reader and Key Vault Reader ([details](docs/permissions.md#customer-tenant-app-other-tenants)).
+admin consent and Reader and Cost Management Reader ([details](docs/permissions.md#customer-tenant-app-other-tenants)).
 Set its `client_id` and apply again (or enter it in Settings), and paste the secret in the dashboard's Settings →
 Customer tenants → Edit. The secret goes to the secret vault and is never a Terraform value, so it stays out of
 the state. `terraform output customer_onboarding` prints the steps and
@@ -96,9 +99,27 @@ identity of another tenant in a federated credential (AADSTS700236).
 `id-<name>-customers` (0.11.0.1) are gone; the next apply deletes them. Federated credentials added to customer
 apps for that identity can be deleted; give each app a client secret instead.
 
+## Area roles
+
+So each team sees only its own scans, `area_roles` creates `<Area>.Read` and `<Area>.Run` app roles over every
+tenant, and a customer's `area_roles` creates `<Area>.Read-<key>` and `<Area>.Run-<key>` for that tenant. Areas are
+`identity`, `platform`, `security` and `cost`; which scans each holds is in the dashboard's README. Read may see
+the area's scans and accept their findings; Run may also press Run now. An area only gets roles (and groups) when
+listed; members may be empty and added to the groups later.
+
+```hcl
+area_roles = {
+  identity = { read_members = ["<object id>"] }                 # Identity.Read, Identity.Run
+  security = { read_members = [], run_members = ["<object id>"] }
+  platform = {}
+}
+```
+
+Needs dashboard image 0.53.0.0 or newer.
+
 ## Role groups
 
-With `create_role_groups = true` (the default), every role (Admin, User, Admin-&lt;key&gt;, User-&lt;key&gt;) gets an
+With `create_role_groups = true` (the default), every role (Admin, User, Admin-&lt;key&gt;, User-&lt;key&gt;, the area roles) gets an
 Entra security group assigned to that app role; `admin_principal_ids`, `user_principal_ids` and each customer's
 `admin_members` / `user_members` become members. Later, add people to the groups (`role_groups` output) in Entra;
 one person can be in several customers' groups. Assigning groups to app roles needs Entra ID P1 or P2. Set it to
@@ -271,10 +292,15 @@ exemptions, remediation tasks and the policy identities' role assignments, and i
 
 ## Key Vault
 
-Key Vault Reader (in the default roles) lets the Key Vault tool list secrets, keys and certificates with their
-expiry dates on RBAC vaults; it can never read a secret's value. Vaults still on access policies need a policy
-for `web_app_principal_id` with **list** on secrets, keys and certificates. A vault whose firewall does not let the
-App Service in shows up as "Items not checked".
+The vault settings, access and logging checks need only Reader. The dashboard's optional item check
+(`KEYVAULT_ITEM_CHECK`, off by default) lists secrets, keys and certificates with their expiry dates; it needs
+Key Vault Reader (no longer in the default roles; add it to a `shared_spn_access` entry's `roles`) on RBAC vaults,
+and never reads a secret's value. Vaults still on access policies need a policy for `web_app_principal_id` with
+**list** on secrets, keys and certificates. A vault whose firewall does not let the App Service in shows up as
+"Items not checked".
+
+**Upgrading to 1.2.0:** Key Vault Reader left the default roles, so the next apply removes it from scopes that use
+the default. Keep it by listing the roles explicitly.
 
 ## Not covered
 

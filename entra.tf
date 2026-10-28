@@ -22,8 +22,25 @@ resource "random_uuid" "customer_role" {
 }
 
 locals {
-  # Every dashboard role: the global ones and Admin-<key> / User-<key> per
-  # customer, with who gets it.
+  area_names = { identity = "Identity", platform = "Platform", security = "Security", cost = "Cost" }
+  # Area roles: <Area>.Read / <Area>.Run over every tenant, and -<key> per customer.
+  area_role_defs = merge(
+    { for a, r in var.area_roles : "${local.area_names[a]}.Read" => { members = r.read_members, description = "${local.area_names[a]} scans, every tenant: read and accept findings." } },
+    { for a, r in var.area_roles : "${local.area_names[a]}.Run" => { members = r.run_members, description = "${local.area_names[a]} scans, every tenant: read, accept findings and Run now." } },
+    merge([for k, c in var.customers : merge(
+      { for a, r in c.area_roles : "${local.area_names[a]}.Read-${k}" => { members = r.read_members, description = "${c.name}, ${local.area_names[a]} scans: read and accept findings." } },
+      { for a, r in c.area_roles : "${local.area_names[a]}.Run-${k}" => { members = r.run_members, description = "${c.name}, ${local.area_names[a]} scans: read, accept findings and Run now." } },
+    )]...),
+  )
+}
+
+resource "random_uuid" "area_role" {
+  for_each = local.area_role_defs
+}
+
+locals {
+  # Every dashboard role: the global ones, Admin-<key> / User-<key> per
+  # customer and the area roles, with who gets it.
   dashboard_roles = merge(
     {
       Admin = { id = random_uuid.role_admin.result, members = var.admin_principal_ids, description = "Everything: every tenant, Run now, Settings." }
@@ -31,6 +48,7 @@ locals {
     },
     { for k, c in var.customers : "Admin-${k}" => { id = random_uuid.customer_role["Admin-${k}"].result, members = c.admin_members, description = "${c.name}: read and run its scans." } },
     { for k, c in var.customers : "User-${k}" => { id = random_uuid.customer_role["User-${k}"].result, members = c.user_members, description = "${c.name}: read-only." } },
+    { for role, r in local.area_role_defs : role => merge(r, { id = random_uuid.area_role[role].result }) },
   )
   role_members = merge([
     for role, r in local.dashboard_roles : { for m in r.members : "${role}|${m}" => { role = role, member = m } }

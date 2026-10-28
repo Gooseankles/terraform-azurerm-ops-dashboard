@@ -33,12 +33,12 @@ variable "shared_spn_access" {
     override) gets access, and with which Azure roles. Each entry is a scope: a management group
     ("/providers/Microsoft.Management/managementGroups/<id>"; the tenant root group's ID is the tenant ID), a
     subscription ("/subscriptions/<id>"), a resource group or a single resource such as a Key Vault. roles
-    defaults to Reader, Cost Management Reader and Key Vault Reader, which is what the scans need. Empty list = no role
-    assignments (grant them yourself).
+    defaults to Reader and Cost Management Reader, which is what the scans need (add "Key Vault Reader" only for the
+    dashboard's optional Key Vault item check). Empty list = no role assignments (grant them yourself).
   EOT
   type = list(object({
     scope = string
-    roles = optional(list(string), ["Reader", "Cost Management Reader", "Key Vault Reader"])
+    roles = optional(list(string), ["Reader", "Cost Management Reader"])
   }))
   default = []
 
@@ -241,7 +241,8 @@ variable "tags" {
 variable "customers" {
   description = <<-EOT
     Customer tenants the dashboard scans besides its own, keyed by a short customer key (lowercase letters, digits,
-    - or _; it names the app roles Admin-<key> and User-<key>, the Entra groups and the storage container).
+    - or _; it names the app roles Admin-<key>, User-<key> and <Area>.Read-<key> / <Area>.Run-<key>, the Entra
+    groups and the storage container).
       name             shown in the tenant tabs
       tenant_id        the customer's Entra tenant ID
       client_id        the app registration made in that tenant (see the customer_onboarding output). Empty until
@@ -251,6 +252,8 @@ variable "customers" {
       enabled          false = keep the customer but stop scanning it
       admin_members    object IDs of users who get Admin-<key> (read and run scans for this customer)
       user_members     object IDs of users who get User-<key> (read this customer)
+      area_roles       per area (identity, platform, security, cost): creates <Area>.Read-<key> and
+                       <Area>.Run-<key> for this customer; read_members / run_members get them
     Terraform never touches a customer tenant: the app registration and its permissions are made there by hand.
   EOT
   type = map(object({
@@ -261,6 +264,10 @@ variable "customers" {
     enabled          = optional(bool, true)
     admin_members    = optional(list(string), [])
     user_members     = optional(list(string), [])
+    area_roles = optional(map(object({
+      read_members = optional(list(string), [])
+      run_members  = optional(list(string), [])
+    })), {})
   }))
   default = {}
 
@@ -272,12 +279,36 @@ variable "customers" {
     condition     = alltrue([for k, c in var.customers : can(regex("^[0-9a-fA-F-]{36}$", c.tenant_id))])
     error_message = "Each customer's tenant_id must be a GUID."
   }
+  validation {
+    condition     = alltrue(flatten([for k, c in var.customers : [for a in keys(c.area_roles) : contains(["identity", "platform", "security", "cost"], a)]]))
+    error_message = "A customer's area_roles keys must be identity, platform, security or cost."
+  }
+}
+
+variable "area_roles" {
+  description = <<-EOT
+    Area roles over every tenant, keyed by area: identity, platform, security or cost. Each listed area creates
+    the app roles <Area>.Read (read that area's scans and accept their findings) and <Area>.Run (also Run now),
+    for example Security.Read; read_members / run_members get them (object IDs, as group members with
+    create_role_groups). Per-customer area roles are in customers.area_roles. Which scans each area holds is in the
+    dashboard's README ("Signing in and roles").
+  EOT
+  type = map(object({
+    read_members = optional(list(string), [])
+    run_members  = optional(list(string), [])
+  }))
+  default = {}
+
+  validation {
+    condition     = alltrue([for a in keys(var.area_roles) : contains(["identity", "platform", "security", "cost"], a)])
+    error_message = "area_roles keys must be identity, platform, security or cost."
+  }
 }
 
 
 variable "create_role_groups" {
   description = <<-EOT
-    Create an Entra security group per dashboard role (Admin, User, Admin-<key>, User-<key>) and assign it to that
+    Create an Entra security group per dashboard role (Admin, User, Admin-<key>, User-<key>, area roles) and assign it to that
     app role, so people get access by group membership and can be in several customers' groups. admin_principal_ids,
     user_principal_ids and each customer's admin_members / user_members become group members. Assigning groups to app
     roles needs Microsoft Entra ID P1 or P2, and members must be users (nested groups do not count). false = assign
