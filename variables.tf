@@ -22,9 +22,15 @@ variable "sku_name" {
 }
 
 variable "image" {
-  description = "Docker Hub image and tag."
+  description = "Docker Hub image and tag. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app."
   type        = string
-  default     = "trozity/azure-ops-dashboard:latest"
+  default     = "trozity/azure-ops-dashboard:stable"
+}
+
+variable "continuous_deployment" {
+  description = "Let the app pull a new image when Docker Hub's tag moves: turns on App Service continuous deployment (DOCKER_ENABLE_CI) and the deploy webhook (output deploy_webhook_url), which needs basic authentication on the Kudu (scm) site. false = the app pulls only on restart or image change."
+  type        = bool
+  default     = false
 }
 
 variable "shared_spn_access" {

@@ -34,7 +34,7 @@ variable "sku_name" {
 variable "image" {
   description = "Docker Hub image and tag."
   type        = string
-  default     = "trozity/azure-ops-dashboard:latest"
+  default     = "trozity/azure-ops-dashboard:stable"
 }
 
 variable "shared_spn_access" {

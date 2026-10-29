@@ -51,6 +51,11 @@ resource "azurerm_linux_web_app" "this" {
   https_only          = true
   tags                = var.tags
 
+  # The deploy webhook signs in to the Kudu site with the publishing
+  # credentials; without continuous deployment they stay off.
+  webdeploy_publish_basic_authentication_enabled = var.continuous_deployment
+  ftp_publish_basic_authentication_enabled       = false
+
   # Outbound through the VNet (private_network): reaches the history storage
   # and the secret vault by their private endpoints.
   virtual_network_subnet_id = local.app_subnet_id
@@ -126,6 +131,7 @@ resource "azurerm_linux_web_app" "this" {
     local.has_customers ? { DASHBOARD_TENANTS = jsonencode(local.dashboard_tenants) } : {},
     length(var.scan_subscription_ids) > 0 ? { AZURE_SUBSCRIPTION_IDS = join(",", var.scan_subscription_ids) } : {},
     var.admin_password != "" ? { DASHBOARD_ADMIN_PASSWORD = var.admin_password } : {},
+    var.continuous_deployment ? { DOCKER_ENABLE_CI = "true" } : {},
     var.extra_app_settings,
   )
 

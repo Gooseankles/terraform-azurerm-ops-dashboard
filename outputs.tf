@@ -8,6 +8,17 @@ output "resource_group_name" {
   value       = azurerm_resource_group.this.name
 }
 
+output "deploy_webhook_url" {
+  description = "With continuous_deployment: the URL that makes the app pull its image again. Holds the publishing password; put it in the dashboard repo's STABLE_DEPLOY_WEBHOOKS secret (one URL per line) so Promote to stable updates this app. null otherwise."
+  sensitive   = true
+  value = var.continuous_deployment ? format(
+    "https://%s:%s@%s.scm.azurewebsites.net/api/registry/webhook",
+    azurerm_linux_web_app.this.site_credential[0].name,
+    azurerm_linux_web_app.this.site_credential[0].password,
+    var.name,
+  ) : null
+}
+
 output "web_app_id" {
   description = "Resource ID of the web app."
   value       = azurerm_linux_web_app.this.id

@@ -8,7 +8,7 @@ It needs Terraform 1.6 or newer and azurerm 5.x (azuread 3.x, random 3.x).
 
 One `apply` creates:
 
-- Resource group, Linux App Service plan (B1) and the web app running `trozity/azure-ops-dashboard:latest`
+- Resource group, Linux App Service plan (B1) and the web app running `trozity/azure-ops-dashboard:stable`
   (port 7070, `/home/data` storage, Always On, HTTPS only, random session secret).
 - **Shared SPN**: the web app's system-assigned identity, used by every tool that has no SPN override in Settings.
   `shared_spn_access` says where it gets access and with which roles (default Reader and Cost Management Reader,
@@ -285,11 +285,24 @@ output "url" {
 
 `?ref=` picks the module version. Every release has a git tag `v<major>.<minor>.<patch>` (see the repo's tags), so
 pin one and raise it when you choose to upgrade; `?ref=main` follows every push. The tag pins the infrastructure only: the app
-image is the `image` input (default `trozity/azure-ops-dashboard:latest`), so set it to `:stable` or a version such
-as `:0.21.2.0` to pin the app too. Inputs are in `variables.tf`, outputs
-(`url`, `web_app_id`, `web_app_principal_id`, `shared_spn_role_assignments`, `resource_group_name`, the SSO values,
+image is the `image` input (default `trozity/azure-ops-dashboard:stable`, promoted by hand once a build has proven
+itself); set it to `:latest` for every push, or to a version such as `:0.55.0.0` to pin the app. Inputs are in
+`variables.tf`, outputs (`url`, `deploy_webhook_url`, `web_app_id`, `web_app_principal_id`, `shared_spn_role_assignments`, `resource_group_name`, the SSO values,
 `history_storage_url`, `secret_vault_uri`, `role_groups`, `customer_onboarding`, `customer_containers` and
 `private_network`) in `outputs.tf`.
+
+## Continuous deployment
+
+With `continuous_deployment = true` the app pulls its image again as soon as the deploy webhook is called, instead
+of at the next restart. To have **Promote to stable** in the dashboard repo do that:
+
+1. `terraform apply`, then `terraform output -raw deploy_webhook_url`.
+2. Put the URL in the dashboard repo's Actions secret `STABLE_DEPLOY_WEBHOOKS` (one URL per line for several
+   apps). The URL holds the site's publishing password: treat it as a secret.
+
+It turns on basic authentication for the Kudu (scm) site, which the webhook needs (FTP stays off). With
+`allowed_ip_ranges` or `allowed_subnet_ids` set, the scm site follows the same rules, so GitHub's runners are refused;
+then call the webhook from an allowed address, or leave it off and restart the app after promoting.
 
 ## Policy check
 
