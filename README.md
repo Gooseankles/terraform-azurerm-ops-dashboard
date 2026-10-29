@@ -7,7 +7,7 @@ configuration (see [Use the module](#use-the-module)).
 It needs Terraform 1.6 or newer and azurerm 5.x (azuread 3.x, random 3.x).
 
 How the pieces are wired and what happens at start-up, sign-in and a scan is in the dashboard's
-[setup low-level design](https://github.com/Gooseankles/azure-ops-dashboard/blob/main/docs/lld-setup.md); day-to-day running in its [operations guide](https://github.com/Gooseankles/azure-ops-dashboard/blob/main/docs/operations.md).
+[setup low-level design](https://github.com/Gooseankles/cirrus-watch/blob/main/docs/lld-setup.md); day-to-day running in its [operations guide](https://github.com/Gooseankles/cirrus-watch/blob/main/docs/operations.md).
 
 One `apply` creates:
 
@@ -66,6 +66,9 @@ the user's own browser. Empty lists (the default) leave the site open to the int
 
 ## Customer tenants
 
+Leave `customers` out to watch only your own tenant: no customer containers, roles or groups are made, and
+customers can be added later without rebuilding anything ([single tenant or several](https://github.com/Gooseankles/cirrus-watch/blob/main/docs/hld.md#single-tenant-or-several)).
+
 ```hcl
 customers = {
   acme = {
@@ -111,7 +114,7 @@ members and assignments). Set `role_group_prefix = "Azure tools dashboard (<name
 So each team sees only its own scans, `area_roles` creates an `<Area>.Read` app role over every tenant, and a
 customer's `area_roles` creates `<Area>.Read-<key>` for that tenant. Areas are `identity`, `platform`, `security` and
 `cost`; which scans each holds is in the dashboard's
-[sign-in and roles guide](https://github.com/Gooseankles/azure-ops-dashboard/blob/main/docs/guides/sign-in-and-roles.md#roles). Whoever may see a scan may also run it and accept its
+[sign-in and roles guide](https://github.com/Gooseankles/cirrus-watch/blob/main/docs/guides/sign-in-and-roles.md#roles). Whoever may see a scan may also run it and accept its
 findings, so there are no Run roles (since v1.5.0; `run_members` still works and joins the Read role, and the old
 `.Run` roles and their groups are removed at the next apply). An area only gets a role (and group) when listed;
 members may be empty and added to the group later.

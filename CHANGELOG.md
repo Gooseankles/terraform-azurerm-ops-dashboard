@@ -3,7 +3,7 @@
 What changed in each release of the Cirrus Watch Terraform module, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and releases follow [Semantic Versioning](https://semver.org/):
 each is a git tag `v<major>.<minor>.<patch>` to pin with `?ref=`. The app has its own
-[changelog](https://github.com/Gooseankles/azure-ops-dashboard/blob/main/CHANGELOG.md).
+[changelog](https://github.com/Gooseankles/cirrus-watch/blob/main/CHANGELOG.md).
 
 ## Upgrading
 
@@ -22,6 +22,13 @@ Read this before you raise `?ref=`.
   its resources through the `moved` blocks in `examples/default`.
 
 ## [Unreleased]
+
+## [1.5.3] - 2026-10-29
+
+### Changed
+
+- Links point at the app repo's new name, `Gooseankles/cirrus-watch` (the old address redirects).
+- The README says how to run it for one tenant only.
 
 ## [1.5.2] - 2026-10-29
 
