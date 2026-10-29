@@ -1,0 +1,28 @@
+# terraform-docs writes the Reference section of README.md (between the
+# BEGIN_TF_DOCS and END_TF_DOCS markers) from variables.tf, outputs.tf and
+# versions.tf. CI fails when it is out of date. Run it with:
+#   docker run --rm -v "$PWD:/m" -w /m quay.io/terraform-docs/terraform-docs:0.20.0 .
+formatter: markdown table
+version: ">= 0.19.0, < 1.0.0"
+
+output:
+  file: README.md
+  mode: inject
+
+sections:
+  show: [requirements, providers, inputs, outputs]
+
+sort:
+  enabled: true
+  by: required
+
+settings:
+  anchor: true
+  default: true
+  escape: true
+  hide-empty: true
+  html: true
+  indent: 3
+  required: true
+  sensitive: true
+  type: true

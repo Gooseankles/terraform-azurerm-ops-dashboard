@@ -1,5 +1,5 @@
 variable "name" {
-  description = "Web app name; must be globally unique. The site becomes https://<name>.azurewebsites.net."
+  description = "Web app name; must be globally unique. The site becomes `https://<name>.azurewebsites.net`."
   type        = string
 }
 
@@ -10,7 +10,7 @@ variable "location" {
 }
 
 variable "resource_group_name" {
-  description = "Resource group to create. Blank = rg-<name>."
+  description = "Resource group to create. Blank = `rg-<name>`."
   type        = string
   default     = ""
 }
@@ -37,8 +37,8 @@ variable "shared_spn_access" {
   description = <<-EOT
     Where the shared SPN (the web app's system-assigned identity, used by every tool without its own SPN
     override) gets access, and with which Azure roles. Each entry is a scope: a management group
-    ("/providers/Microsoft.Management/managementGroups/<id>"; the tenant root group's ID is the tenant ID), a
-    subscription ("/subscriptions/<id>"), a resource group or a single resource such as a Key Vault. roles
+    (`/providers/Microsoft.Management/managementGroups/<id>`; the tenant root group's ID is the tenant ID), a
+    subscription (`/subscriptions/<id>`), a resource group or a single resource such as a Key Vault. roles
     defaults to Reader and Cost Management Reader, which is what the scans need (add "Key Vault Reader" only for the
     dashboard's optional Key Vault item check). Empty list = no role assignments (grant them yourself).
   EOT
@@ -247,7 +247,7 @@ variable "tags" {
 variable "customers" {
   description = <<-EOT
     Customer tenants the dashboard scans besides its own, keyed by a short customer key (lowercase letters, digits,
-    - or _; it names the app roles Admin-<key>, User-<key> and <Area>.Read-<key> / <Area>.Run-<key>, the Entra
+    - or _; it names the app roles `Admin-<key>`, `User-<key>` and `<Area>.Read-<key>`, the Entra
     groups and the storage container).
       name             shown in the tenant tabs
       tenant_id        the customer's Entra tenant ID
@@ -256,9 +256,9 @@ variable "customers" {
                        the app's Settings, so it never lands in the Terraform state.
       subscription_ids limit the scans to these subscriptions (empty = every one the app can see there)
       enabled          false = keep the customer but stop scanning it
-      admin_members    object IDs of users who get Admin-<key> (read and run scans for this customer)
-      user_members     object IDs of users who get User-<key> (read this customer)
-      area_roles       per area (identity, platform, security, cost): creates <Area>.Read-<key> for this
+      admin_members    object IDs of users who get `Admin-<key>` (this customer, every area)
+      user_members     object IDs of users who get `User-<key>` (this customer, every area; same access as `Admin-<key>`)
+      area_roles       per area (identity, platform, security, cost): creates `<Area>.Read-<key>` for this
                        customer (read, run and accept findings); read_members get it (run_members is
                        deprecated and joins read_members)
     Terraform never touches a customer tenant: the app registration and its permissions are made there by hand.
@@ -295,7 +295,7 @@ variable "customers" {
 variable "area_roles" {
   description = <<-EOT
     Area roles over every tenant, keyed by area: identity, platform, security or cost. Each listed area creates
-    the app role <Area>.Read (see, run and accept findings of that area's scans), for example Security.Read;
+    the app role `<Area>.Read` (see, run and accept findings of that area's scans), for example Security.Read;
     read_members get it (object IDs, as group members with create_role_groups). run_members is deprecated: there
     are no Run roles any more (whoever may see a scan may run it) and its members join read_members. Per-customer area roles are in customers.area_roles. Which scans each area holds is in the
     dashboard's README ("Signing in and roles").
@@ -315,7 +315,7 @@ variable "area_roles" {
 
 variable "create_role_groups" {
   description = <<-EOT
-    Create an Entra security group per dashboard role (Admin, User, Admin-<key>, User-<key>, area roles) and assign it to that
+    Create an Entra security group per dashboard role (Admin, User, `Admin-<key>`, `User-<key>`, area roles) and assign it to that
     app role, so people get access by group membership and can be in several customers' groups. admin_principal_ids,
     user_principal_ids and each customer's admin_members / user_members become group members. Assigning groups to app
     roles needs Microsoft Entra ID P1 or P2, and members must be users (nested groups do not count). false = assign
@@ -326,7 +326,7 @@ variable "create_role_groups" {
 }
 
 variable "role_group_prefix" {
-  description = "Display name prefix of the role groups. Blank = \"Cirrus Watch (<name>)\"."
+  description = "Display name prefix of the role groups. Blank = `Cirrus Watch (<name>)`."
   type        = string
   default     = ""
 }

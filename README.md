@@ -235,7 +235,7 @@ application permissions for the `web_app_principal_id` output.
 
 ## Run
 
-```
+```bat
 cd examples/default
 copy terraform.tfvars.example terraform.tfvars   # then fill it in
 az login
@@ -268,7 +268,7 @@ provider "azurerm" {
 }
 
 module "dashboard" {
-  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.0.1"
+  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.5.1"
 
   name     = "contoso-azure-tools"
   location = "norwayeast"
@@ -287,10 +287,8 @@ output "url" {
 `?ref=` picks the module version. Every release has a git tag `v<major>.<minor>.<patch>` (see the repo's tags), so
 pin one and raise it when you choose to upgrade; `?ref=main` follows every push. The tag pins the infrastructure only: the app
 image is the `image` input (default `trozity/azure-ops-dashboard:stable`, promoted by hand once a build has proven
-itself); set it to `:latest` for every push, or to a version such as `:0.55.0.0` to pin the app. Inputs are in
-`variables.tf`, outputs (`url`, `deploy_webhook_url`, `web_app_id`, `web_app_principal_id`, `shared_spn_role_assignments`, `resource_group_name`, the SSO values,
-`history_storage_url`, `secret_vault_uri`, `role_groups`, `customer_onboarding`, `customer_containers` and
-`private_network`) in `outputs.tf`.
+itself); set it to `:latest` for every push, or to a version such as `:0.55.0.0` to pin the app. Every input and
+output is listed under [Reference](#reference); what changed between versions is in [CHANGELOG.md](CHANGELOG.md).
 
 ## Continuous deployment
 
@@ -328,6 +326,100 @@ the default. Keep it by listing the roles explicitly.
 - Key Vault access policies on access-policy vaults (see above).
 - A web app you already built by hand is not adopted; either `terraform import` it or let Terraform create a
   new one with another `name`.
+
+## Reference
+
+Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `outputs.tf` and `versions.tf`
+(`.terraform-docs.yml`); do not edit by hand.
+
+<!-- BEGIN_TF_DOCS -->
+### Requirements
+
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6 |
+| <a name="requirement_azuread"></a> [azuread](#requirement\_azuread) | >= 3.0, < 4.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | >= 5.0, < 6.0 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.6, < 4.0 |
+
+### Providers
+
+| Name | Version |
+|------|---------|
+| <a name="provider_azuread"></a> [azuread](#provider\_azuread) | >= 3.0, < 4.0 |
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | >= 5.0, < 6.0 |
+| <a name="provider_random"></a> [random](#provider\_random) | >= 3.6, < 4.0 |
+
+### Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_name"></a> [name](#input\_name) | Web app name; must be globally unique. The site becomes `https://<name>.azurewebsites.net`. | `string` | n/a | yes |
+| <a name="input_admin_password"></a> [admin\_password](#input\_admin\_password) | Break-glass local login (username admin). Blank = disabled (recommended once SSO works). | `string` | `""` | no |
+| <a name="input_admin_principal_ids"></a> [admin\_principal\_ids](#input\_admin\_principal\_ids) | Object IDs of users or groups that get the Admin role on the dashboard (only with create\_sso\_app = true; otherwise the app team assigns them). | `list(string)` | `[]` | no |
+| <a name="input_alert_5xx_count"></a> [alert\_5xx\_count](#input\_alert\_5xx\_count) | Alarm when the app answers with more server errors (5xx) than this in 15 minutes. | `number` | `10` | no |
+| <a name="input_alert_cpu_pct"></a> [alert\_cpu\_pct](#input\_alert\_cpu\_pct) | Alarm when the plan's average CPU stays above this percentage for 15 minutes. | `number` | `85` | no |
+| <a name="input_alert_emails"></a> [alert\_emails](#input\_alert\_emails) | Email addresses for alarms on the dashboard's own App Service (CPU, memory, server errors), sent by Azure Monitor. Empty = no alerts are created. Each alert rule costs about 0.10 USD a month. | `list(string)` | `[]` | no |
+| <a name="input_alert_memory_pct"></a> [alert\_memory\_pct](#input\_alert\_memory\_pct) | Alarm when the plan's average memory stays above this percentage for 15 minutes. | `number` | `85` | no |
+| <a name="input_allowed_ip_ranges"></a> [allowed\_ip\_ranges](#input\_allowed\_ip\_ranges) | Public IPs or CIDR ranges that may reach the web app ("Enabled from selected virtual networks and IP<br/>addresses"), e.g. ["203.0.113.10", "198.51.100.0/24"]. A bare address means that one address. Empty, together<br/>with an empty allowed\_subnet\_ids, = open to the internet (sign-in still required). | `list(string)` | `[]` | no |
+| <a name="input_allowed_subnet_ids"></a> [allowed\_subnet\_ids](#input\_allowed\_subnet\_ids) | Subnet resource IDs whose traffic may reach the web app (the subnet needs the Microsoft.Web service endpoint). Used together with allowed\_ip\_ranges. | `list(string)` | `[]` | no |
+| <a name="input_area_roles"></a> [area\_roles](#input\_area\_roles) | Area roles over every tenant, keyed by area: identity, platform, security or cost. Each listed area creates<br/>the app role `<Area>.Read` (see, run and accept findings of that area's scans), for example Security.Read;<br/>read\_members get it (object IDs, as group members with create\_role\_groups). run\_members is deprecated: there<br/>are no Run roles any more (whoever may see a scan may run it) and its members join read\_members. Per-customer area roles are in customers.area\_roles. Which scans each area holds is in the<br/>dashboard's README ("Signing in and roles"). | <pre>map(object({<br/>    read_members = optional(list(string), [])<br/>    run_members  = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
+| <a name="input_blob_private_dns_zone_id"></a> [blob\_private\_dns\_zone\_id](#input\_blob\_private\_dns\_zone\_id) | Existing privatelink.blob.core.windows.net private DNS zone (e.g. in a hub), already linked to the VNet. Blank = create one and link it to the VNet. | `string` | `""` | no |
+| <a name="input_continuous_deployment"></a> [continuous\_deployment](#input\_continuous\_deployment) | Let the app pull a new image when Docker Hub's tag moves: turns on App Service continuous deployment (DOCKER\_ENABLE\_CI) and the deploy webhook (output deploy\_webhook\_url), which needs basic authentication on the Kudu (scm) site. false = the app pulls only on restart or image change. | `bool` | `false` | no |
+| <a name="input_create_history_storage"></a> [create\_history\_storage](#input\_create\_history\_storage) | Create a storage account for scan results and run history (reached with the web app's managed identity, no keys). false = keep them on the app's own disk. | `bool` | `true` | no |
+| <a name="input_create_role_groups"></a> [create\_role\_groups](#input\_create\_role\_groups) | Create an Entra security group per dashboard role (Admin, User, `Admin-<key>`, `User-<key>`, area roles) and assign it to that<br/>app role, so people get access by group membership and can be in several customers' groups. admin\_principal\_ids,<br/>user\_principal\_ids and each customer's admin\_members / user\_members become group members. Assigning groups to app<br/>roles needs Microsoft Entra ID P1 or P2, and members must be users (nested groups do not count). false = assign<br/>the people to the roles directly. | `bool` | `true` | no |
+| <a name="input_create_secret_vault"></a> [create\_secret\_vault](#input\_create\_secret\_vault) | Create a key vault for the client secrets entered in Settings (SPN overrides, customer tenants); the web app reads and writes it with its managed identity. false = those secrets stay in files on the app's own disk. | `bool` | `true` | no |
+| <a name="input_create_sso_app"></a> [create\_sso\_app](#input\_create\_sso\_app) | true = Terraform creates the sign-in app registration. false = the app registration comes from your own<br/>request process: set sso\_app\_client\_id (and sso\_client\_secret if the team hands out a secret instead of adding<br/>the federated credential); the output sso\_app\_request lists everything to ask them for. | `bool` | `true` | no |
+| <a name="input_customers"></a> [customers](#input\_customers) | Customer tenants the dashboard scans besides its own, keyed by a short customer key (lowercase letters, digits,<br/>- or \_; it names the app roles `Admin-<key>`, `User-<key>` and `<Area>.Read-<key>`, the Entra<br/>groups and the storage container).<br/>  name             shown in the tenant tabs<br/>  tenant\_id        the customer's Entra tenant ID<br/>  client\_id        the app registration made in that tenant (see the customer\_onboarding output). Empty until<br/>                   it exists; it can also be set in the app's Settings. Its client secret is entered only in<br/>                   the app's Settings, so it never lands in the Terraform state.<br/>  subscription\_ids limit the scans to these subscriptions (empty = every one the app can see there)<br/>  enabled          false = keep the customer but stop scanning it<br/>  admin\_members    object IDs of users who get `Admin-<key>` (this customer, every area)<br/>  user\_members     object IDs of users who get `User-<key>` (this customer, every area; same access as `Admin-<key>`)<br/>  area\_roles       per area (identity, platform, security, cost): creates `<Area>.Read-<key>` for this<br/>                   customer (read, run and accept findings); read\_members get it (run\_members is<br/>                   deprecated and joins read\_members)<br/>Terraform never touches a customer tenant: the app registration and its permissions are made there by hand. | <pre>map(object({<br/>    name             = string<br/>    tenant_id        = string<br/>    subscription_ids = optional(list(string), [])<br/>    client_id        = optional(string, "")<br/>    enabled          = optional(bool, true)<br/>    admin_members    = optional(list(string), [])<br/>    user_members     = optional(list(string), [])<br/>    area_roles = optional(map(object({<br/>      read_members = optional(list(string), [])<br/>      run_members  = optional(list(string), [])<br/>    })), {})<br/>  }))</pre> | `{}` | no |
+| <a name="input_extra_app_settings"></a> [extra\_app\_settings](#input\_extra\_app\_settings) | Extra app settings, e.g. AZURE\_REQUIRED\_TAGS. | `map(string)` | `{}` | no |
+| <a name="input_grant_graph_permissions"></a> [grant\_graph\_permissions](#input\_grant\_graph\_permissions) | Give the system-assigned identity the Microsoft Graph application permissions the tools use (user and group<br/>names, group members, app registration secrets, access packages). Needs a Privileged Role Administrator or<br/>Global Administrator running terraform. | `bool` | `true` | no |
+| <a name="input_grant_sso_consent"></a> [grant\_sso\_consent](#input\_grant\_sso\_consent) | Grant tenant-wide admin consent for the sign-in app's delegated permissions (openid, profile), so tenants that<br/>do not let users consent themselves do not show "Need admin approval" at sign-in. Only with create\_sso\_app =<br/>true. A service principal running terraform (a pipeline) needs the Microsoft Graph application permission<br/>DelegatedPermissionGrant.ReadWrite.All; a person needs Application Administrator or Global Administrator.<br/>false = an admin clicks "Grant admin consent" on the Enterprise app's Permissions page instead. | `bool` | `true` | no |
+| <a name="input_graph_permissions"></a> [graph\_permissions](#input\_graph\_permissions) | Microsoft Graph application permissions for the system-assigned identity. | `list(string)` | <pre>[<br/>  "User.Read.All",<br/>  "GroupMember.Read.All",<br/>  "Application.Read.All",<br/>  "EntitlementManagement.Read.All",<br/>  "RoleManagement.Read.Directory",<br/>  "AuditLog.Read.All",<br/>  "Policy.Read.All",<br/>  "DelegatedPermissionGrant.Read.All",<br/>  "LicenseAssignment.Read.All",<br/>  "PrivilegedEligibilitySchedule.Read.AzureADGroup",<br/>  "PrivilegedAssignmentSchedule.Read.AzureADGroup"<br/>]</pre> | no |
+| <a name="input_history_retention_days"></a> [history\_retention\_days](#input\_history\_retention\_days) | How many days of run history the dashboard keeps. | `number` | `730` | no |
+| <a name="input_image"></a> [image](#input\_image) | Docker Hub image and tag. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app. | `string` | `"trozity/azure-ops-dashboard:stable"` | no |
+| <a name="input_location"></a> [location](#input\_location) | Azure region. | `string` | `"norwayeast"` | no |
+| <a name="input_private_access"></a> [private\_access](#input\_private\_access) | How the web app reaches the history storage account and the secret vault when private\_network = true.<br/>"private\_endpoint": private endpoints and private DNS zones, public network access off.<br/>"service\_endpoint": no private endpoints or DNS zones; the integration subnet gets the Microsoft.Storage and<br/>Microsoft.KeyVault service endpoints and both firewalls let in that subnet only (an existing subnet needs both<br/>service endpoints turned on first). Cheaper and simpler; the storage account must be in the VNet's region or<br/>its paired region. | `string` | `"private_endpoint"` | no |
+| <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | Existing subnet for the private endpoints (storage, secret vault). Set together with vnet\_integration\_subnet\_id; not used with private\_access = "service\_endpoint". | `string` | `""` | no |
+| <a name="input_private_network"></a> [private\_network](#input\_private\_network) | Join the web app to a virtual network (VNet integration) and reach the history storage account and the secret<br/>vault through private endpoints, with their public network access turned off. Without existing subnets a small<br/>VNet is created (vnet\_address\_space). Costs a little extra (private endpoint and DNS zone). | `bool` | `false` | no |
+| <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group to create. Blank = `rg-<name>`. | `string` | `""` | no |
+| <a name="input_role_group_prefix"></a> [role\_group\_prefix](#input\_role\_group\_prefix) | Display name prefix of the role groups. Blank = `Cirrus Watch (<name>)`. | `string` | `""` | no |
+| <a name="input_scan_subscription_ids"></a> [scan\_subscription\_ids](#input\_scan\_subscription\_ids) | Limit the scans to these subscription IDs (AZURE\_SUBSCRIPTION\_IDS). Empty = every subscription the shared SPN can see, so new subscriptions under shared\_spn\_access are picked up automatically. | `list(string)` | `[]` | no |
+| <a name="input_secret_vault_admin_ids"></a> [secret\_vault\_admin\_ids](#input\_secret\_vault\_admin\_ids) | Object IDs of users or groups who may see and change the stored secrets in the portal (Key Vault Secrets Officer). Empty = only the web app. | `list(string)` | `[]` | no |
+| <a name="input_secret_vault_name"></a> [secret\_vault\_name](#input\_secret\_vault\_name) | Key vault name (3-24 letters, digits and dashes, globally unique). Blank = kv<name without dashes> plus a random suffix. | `string` | `""` | no |
+| <a name="input_secret_vault_purge_protection"></a> [secret\_vault\_purge\_protection](#input\_secret\_vault\_purge\_protection) | Turn on purge protection for the secret vault. Cannot be turned off again, and a deleted vault then keeps its name for 90 days. | `bool` | `false` | no |
+| <a name="input_shared_spn_access"></a> [shared\_spn\_access](#input\_shared\_spn\_access) | Where the shared SPN (the web app's system-assigned identity, used by every tool without its own SPN<br/>override) gets access, and with which Azure roles. Each entry is a scope: a management group<br/>(`/providers/Microsoft.Management/managementGroups/<id>`; the tenant root group's ID is the tenant ID), a<br/>subscription (`/subscriptions/<id>`), a resource group or a single resource such as a Key Vault. roles<br/>defaults to Reader and Cost Management Reader, which is what the scans need (add "Key Vault Reader" only for the<br/>dashboard's optional Key Vault item check). Empty list = no role assignments (grant them yourself). | <pre>list(object({<br/>    scope = string<br/>    roles = optional(list(string), ["Reader", "Cost Management Reader"])<br/>  }))</pre> | `[]` | no |
+| <a name="input_sku_name"></a> [sku\_name](#input\_sku\_name) | App Service plan size. B1 is enough; Always On needs Basic or higher. | `string` | `"B1"` | no |
+| <a name="input_sso_app_client_id"></a> [sso\_app\_client\_id](#input\_sso\_app\_client\_id) | Client ID of an existing sign-in app registration (only with create\_sso\_app = false). Blank on the first apply: SSO stays off (use admin\_password) until the team sends it. | `string` | `""` | no |
+| <a name="input_sso_client_secret"></a> [sso\_client\_secret](#input\_sso\_client\_secret) | Client secret of the existing app registration, if the team will not add the federated credential. Blank = secretless. | `string` | `""` | no |
+| <a name="input_storage_account_name"></a> [storage\_account\_name](#input\_storage\_account\_name) | Storage account name (3-24 lowercase letters and digits, globally unique). Blank = st<name without dashes> plus a random suffix. | `string` | `""` | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | Tags on the Azure resources. | `map(string)` | `{}` | no |
+| <a name="input_user_principal_ids"></a> [user\_principal\_ids](#input\_user\_principal\_ids) | Object IDs of users or groups that get the read-only User role on the dashboard. | `list(string)` | `[]` | no |
+| <a name="input_vault_private_dns_zone_id"></a> [vault\_private\_dns\_zone\_id](#input\_vault\_private\_dns\_zone\_id) | Existing privatelink.vaultcore.azure.net private DNS zone (e.g. in a hub), already linked to the VNet. Blank = create one and link it to the VNet. | `string` | `""` | no |
+| <a name="input_vnet_address_space"></a> [vnet\_address\_space](#input\_vnet\_address\_space) | Address space of the VNet created when private\_network = true and no subnets are given. A /24 is plenty: a /26 for the app and a /27 for private endpoints. | `list(string)` | <pre>[<br/>  "10.90.0.0/24"<br/>]</pre> | no |
+| <a name="input_vnet_integration_subnet_id"></a> [vnet\_integration\_subnet\_id](#input\_vnet\_integration\_subnet\_id) | Existing subnet for the web app's VNet integration (delegated to Microsoft.Web/serverFarms, /28 or larger). With private endpoints set together with private\_endpoint\_subnet\_id; blank = create a VNet. | `string` | `""` | no |
+| <a name="input_vnet_route_all"></a> [vnet\_route\_all](#input\_vnet\_route\_all) | Send all the web app's outbound traffic through the VNet (needs a NAT gateway or firewall there for internet access). false = only private addresses go through the VNet, which is all the private endpoint needs. | `bool` | `false` | no |
+
+### Outputs
+
+| Name | Description |
+|------|-------------|
+| <a name="output_customer_containers"></a> [customer\_containers](#output\_customer\_containers) | History storage container per customer. |
+| <a name="output_customer_onboarding"></a> [customer\_onboarding](#output\_customer\_onboarding) | Per customer: the app registration to make in that tenant and the permissions to give it. Terraform does not touch customer tenants. |
+| <a name="output_deploy_webhook_url"></a> [deploy\_webhook\_url](#output\_deploy\_webhook\_url) | With continuous\_deployment: the URL that makes the app pull its image again. Holds the publishing password; put it in the dashboard repo's STABLE\_DEPLOY\_WEBHOOKS secret (one URL per line) so Promote to stable updates this app. null otherwise. |
+| <a name="output_graph_request"></a> [graph\_request](#output\_graph\_request) | What to ask an Entra admin for when grant\_graph\_permissions = false: the scan identity's Graph application permissions. |
+| <a name="output_history_storage_url"></a> [history\_storage\_url](#output\_history\_storage\_url) | Blob endpoint of the history storage account (null when create\_history\_storage = false). |
+| <a name="output_private_network"></a> [private\_network](#output\_private\_network) | VNet integration subnet, how storage and the vault are reached, and their private endpoints (null when private\_network = false). |
+| <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | Resource group the dashboard lives in. |
+| <a name="output_role_groups"></a> [role\_groups](#output\_role\_groups) | Entra security group per dashboard role (role => group object ID). Add people to these groups; one person can be in several customers' groups. |
+| <a name="output_secret_vault_uri"></a> [secret\_vault\_uri](#output\_secret\_vault\_uri) | Address of the key vault holding the secrets entered in Settings (null when create\_secret\_vault = false). |
+| <a name="output_shared_spn_role_assignments"></a> [shared\_spn\_role\_assignments](#output\_shared\_spn\_role\_assignments) | Roles the shared SPN got from shared\_spn\_access, as scope => roles. |
+| <a name="output_sso_app_client_id"></a> [sso\_app\_client\_id](#output\_sso\_app\_client\_id) | Client ID of the sign-in app registration. |
+| <a name="output_sso_app_request"></a> [sso\_app\_request](#output\_sso\_app\_request) | What to ask the app-registration team for when create\_sso\_app = false. |
+| <a name="output_sso_identity_client_id"></a> [sso\_identity\_client\_id](#output\_sso\_identity\_client\_id) | Client ID of the user-assigned identity used for secretless SSO. |
+| <a name="output_url"></a> [url](#output\_url) | Dashboard address. |
+| <a name="output_web_app_id"></a> [web\_app\_id](#output\_web\_app\_id) | Resource ID of the web app. |
+| <a name="output_web_app_principal_id"></a> [web\_app\_principal\_id](#output\_web\_app\_principal\_id) | Object ID of the web app's system-assigned identity (the shared SPN). Extra roles can go in shared\_spn\_access or be granted elsewhere with this ID. |
+<!-- END_TF_DOCS -->
 
 ## License
 
