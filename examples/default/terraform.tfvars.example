@@ -62,14 +62,14 @@ user_principal_ids  = []
 # role_group_prefix  = "" # blank = "Cirrus Watch (<name>)"
 
 # Area roles, so each team sees only its own scans: each listed area gets
-# <Area>.Read (read, accept findings) and <Area>.Run (also Run now), each with a
+# <Area>.Read (see, run and accept findings of that area's scans), with a
 # group. Leave the member lists out to manage who is in the groups in Entra.
 # area_roles = {
 #   identity = {}
 #   platform = {}
 #   security = {}
 #   cost     = {}
-#   # or with members: security = { read_members = ["<user object id>"], run_members = [] }
+#   # or with members: security = { read_members = ["<user object id>"] }
 # }
 
 # Break-glass local login; leave blank once SSO works.
@@ -87,9 +87,9 @@ user_principal_ids  = []
 #     client_id        = ""    # app registration made in that tenant; set once it exists
 #     subscription_ids = []    # empty = every subscription the app can see there
 #     enabled          = true  # false = keep the customer but stop scanning it
-#     admin_members    = []    # user object IDs: read and run Acme's scans
-#     user_members     = []    # user object IDs: read Acme only
-#     area_roles       = {}    # e.g. { security = {} }: Security.Read-acme, Security.Run-acme
+#     admin_members    = []    # user object IDs: see and run Acme's scans
+#     user_members     = []    # user object IDs: the same (kept for older setups)
+#     area_roles       = {}    # e.g. { security = {} }: Security.Read-acme
 #   }
 # }
 

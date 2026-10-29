@@ -70,10 +70,10 @@ customers = {
     tenant_id        = "00000000-0000-0000-0000-000000000000"
     client_id        = ""                   # the app registration made in Acme's tenant (set it once it exists)
     subscription_ids = []                   # empty = every subscription that app can see there
-    admin_members    = ["<user object id>"] # Admin-acme: read and run Acme's scans
-    user_members     = ["<user object id>"] # User-acme: read Acme only
-    area_roles = {                          # optional: Security.Read-acme, Security.Run-acme
-      security = { read_members = ["<user object id>"], run_members = [] }
+    admin_members    = ["<user object id>"] # Admin-acme: see and run Acme's scans
+    user_members     = ["<user object id>"] # User-acme: the same (kept for older setups)
+    area_roles = {                          # optional: Security.Read-acme
+      security = { read_members = ["<user object id>"] }
     }
   }
 }
@@ -105,16 +105,17 @@ members and assignments). Set `role_group_prefix = "Azure tools dashboard (<name
 
 ## Area roles
 
-So each team sees only its own scans, `area_roles` creates `<Area>.Read` and `<Area>.Run` app roles over every
-tenant, and a customer's `area_roles` creates `<Area>.Read-<key>` and `<Area>.Run-<key>` for that tenant. Areas are
-`identity`, `platform`, `security` and `cost`; which scans each holds is in the dashboard's README. Read may see
-the area's scans and accept their findings; Run may also press Run now. An area only gets roles (and groups) when
-listed; members may be empty and added to the groups later.
+So each team sees only its own scans, `area_roles` creates an `<Area>.Read` app role over every tenant, and a
+customer's `area_roles` creates `<Area>.Read-<key>` for that tenant. Areas are `identity`, `platform`, `security` and
+`cost`; which scans each holds is in the dashboard's README. Whoever may see a scan may also run it and accept its
+findings, so there are no Run roles (since v1.5.0; `run_members` still works and joins the Read role, and the old
+`.Run` roles and their groups are removed at the next apply). An area only gets a role (and group) when listed;
+members may be empty and added to the group later.
 
 ```hcl
 area_roles = {
-  identity = { read_members = ["<object id>"] }                 # Identity.Read, Identity.Run
-  security = { read_members = [], run_members = ["<object id>"] }
+  identity = { read_members = ["<object id>"] }                 # Identity.Read
+  security = { read_members = [] }
   platform = {}
 }
 ```

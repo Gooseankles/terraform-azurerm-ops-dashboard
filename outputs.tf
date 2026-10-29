@@ -60,10 +60,10 @@ output "sso_app_request" {
       Front-channel logout / home page: ${local.site_url}
     - No API permissions needed beyond the default sign-in (openid, profile).
     - App roles (allowed member types Users/Groups):
-        value "Admin"  - everything: every tenant, Run now, Settings
-        value "User"   - read-only, every tenant%{for k, c in var.customers}
+        value "Admin"  - everything: every tenant, plus Settings
+        value "User"   - every tenant: read and run%{for k, c in var.customers}
         value "Admin-${k}"  - ${c.name}: read and run its scans
-        value "User-${k}"   - ${c.name}: read-only%{endfor}%{for role, r in local.area_role_defs}
+        value "User-${k}"   - ${c.name}: read and run its scans%{endfor}%{for role, r in local.area_role_defs}
         value "${role}"  - ${r.description}%{endfor}
     - Enterprise application: "Assignment required" = Yes; assign groups (or people) to the roles.
     - Credential, preferred (no secret): Federated credential, scenario "Managed identity" / "Other issuer":
