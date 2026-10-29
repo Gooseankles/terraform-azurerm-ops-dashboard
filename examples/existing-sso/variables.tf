@@ -65,7 +65,7 @@ variable "customers" {
 }
 
 variable "area_roles" {
-  description = "Areas (identity, platform, security, cost) whose <Area>.Read / <Area>.Run roles to ask the Entra team for."
+  description = "Areas (identity, platform, security, cost) whose <Area>.Read roles to ask the Entra team for (see, run and accept findings). run_members is deprecated and joins read_members."
   type = map(object({
     read_members = optional(list(string), [])
     run_members  = optional(list(string), [])

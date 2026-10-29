@@ -23,6 +23,16 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+## [1.5.4] - 2026-10-29
+
+### Fixed
+
+- The examples no longer mention Run roles (gone since 1.5.0): area roles are `<Area>.Read` only, and `run_members`
+  is described as deprecated.
+- The default example passes `continuous_deployment` and shows the `resource_group_name`, `web_app_id`,
+  `deploy_webhook_url` and `graph_request` outputs.
+- Usage snippets point at v1.5.4.
+
 ## [1.5.3] - 2026-10-29
 
 ### Changed
@@ -122,7 +132,9 @@ Read this before you raise `?ref=`.
 - The module at the repo root, split from the app repo, with a root configuration in `examples/default` and
   `docs/permissions.md`.
 
-[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.2...HEAD
+[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.4...HEAD
+[1.5.4]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.3...v1.5.4
+[1.5.3]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.4.0...v1.5.0

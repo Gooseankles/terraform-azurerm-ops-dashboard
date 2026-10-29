@@ -37,6 +37,12 @@ variable "image" {
   default     = "trozity/azure-ops-dashboard:stable"
 }
 
+variable "continuous_deployment" {
+  description = "Let the app pull a new image when Docker Hub's tag moves: turns on App Service continuous deployment (DOCKER_ENABLE_CI) and the deploy webhook (output deploy_webhook_url), which needs basic authentication on the Kudu (scm) site. false = the app pulls only on restart or image change."
+  type        = bool
+  default     = false
+}
+
 variable "shared_spn_access" {
   description = <<-EOT
     Where the shared SPN (the web app's system-assigned identity, used by every tool without its own SPN
@@ -243,7 +249,7 @@ variable "tags" {
 variable "customers" {
   description = <<-EOT
     Customer tenants the dashboard scans besides its own, keyed by a short customer key (lowercase letters, digits,
-    - or _; it names the app roles Admin-<key>, User-<key> and <Area>.Read-<key> / <Area>.Run-<key>, the Entra
+    - or _; it names the app roles `Admin-<key>`, `User-<key>` and `<Area>.Read-<key>`, the Entra
     groups and the storage container).
       name             shown in the tenant tabs
       tenant_id        the customer's Entra tenant ID
@@ -252,10 +258,11 @@ variable "customers" {
                        the app's Settings, so it never lands in the Terraform state.
       subscription_ids limit the scans to these subscriptions (empty = every one the app can see there)
       enabled          false = keep the customer but stop scanning it
-      admin_members    object IDs of users who get Admin-<key> (read and run scans for this customer)
-      user_members     object IDs of users who get User-<key> (read this customer)
-      area_roles       per area (identity, platform, security, cost): creates <Area>.Read-<key> and
-                       <Area>.Run-<key> for this customer; read_members / run_members get them
+      admin_members    object IDs of users who get `Admin-<key>` (this customer, every area)
+      user_members     object IDs of users who get `User-<key>` (this customer, every area; same access as `Admin-<key>`)
+      area_roles       per area (identity, platform, security, cost): creates `<Area>.Read-<key>` for this
+                       customer (read, run and accept findings); read_members get it (run_members is
+                       deprecated and joins read_members)
     Terraform never touches a customer tenant: the app registration and its permissions are made there by hand.
   EOT
   type = map(object({
@@ -290,10 +297,10 @@ variable "customers" {
 variable "area_roles" {
   description = <<-EOT
     Area roles over every tenant, keyed by area: identity, platform, security or cost. Each listed area creates
-    the app roles <Area>.Read (read that area's scans and accept their findings) and <Area>.Run (also Run now),
-    for example Security.Read; read_members / run_members get them (object IDs, as group members with
-    create_role_groups). Per-customer area roles are in customers.area_roles. Which scans each area holds is in the
-    dashboard's README ("Signing in and roles").
+    the app role `<Area>.Read` (see, run and accept findings of that area's scans), for example Security.Read;
+    read_members get it (object IDs, as group members with create_role_groups). run_members is deprecated: there
+    are no Run roles any more (whoever may see a scan may run it) and its members join read_members. Per-customer area roles are in customers.area_roles. Which scans each area holds is in the
+    dashboard's docs/guides/sign-in-and-roles.md.
   EOT
   type = map(object({
     read_members = optional(list(string), [])

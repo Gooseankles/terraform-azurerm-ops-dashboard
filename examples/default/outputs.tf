@@ -57,3 +57,24 @@ output "secret_vault_uri" {
   description = "Address of the key vault holding the secrets entered in Settings."
   value       = module.dashboard.secret_vault_uri
 }
+
+output "resource_group_name" {
+  description = "Resource group the dashboard lives in."
+  value       = module.dashboard.resource_group_name
+}
+
+output "web_app_id" {
+  description = "Resource ID of the web app."
+  value       = module.dashboard.web_app_id
+}
+
+output "deploy_webhook_url" {
+  description = "With continuous_deployment: the URL that makes the app pull its image again. Holds the publishing password; put it in the dashboard repo's STABLE_DEPLOY_WEBHOOKS secret (one URL per line) so Promote to stable updates this app. null otherwise."
+  sensitive   = true
+  value       = module.dashboard.deploy_webhook_url
+}
+
+output "graph_request" {
+  description = "What to ask an Entra admin for when grant_graph_permissions = false: the scan identity's Graph application permissions."
+  value       = module.dashboard.graph_request
+}

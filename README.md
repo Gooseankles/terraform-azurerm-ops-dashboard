@@ -275,7 +275,7 @@ provider "azurerm" {
 }
 
 module "dashboard" {
-  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.5.2"
+  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.5.4"
 
   name     = "contoso-azure-tools"
   location = "norwayeast"
