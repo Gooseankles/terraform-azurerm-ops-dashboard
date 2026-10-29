@@ -23,6 +23,15 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-10-29
+
+### Changed
+
+- Docs links point at the dashboard's new guides (sign-in and roles, setup low-level design, operations) instead of
+  its README.
+- The pull request checklist asks for every change to be documented, with the dashboard's setup low-level design
+  and high-level design updated when affected.
+
 ## [1.5.1] - 2026-10-29
 
 ### Added
@@ -106,7 +115,8 @@ Read this before you raise `?ref=`.
 - The module at the repo root, split from the app repo, with a root configuration in `examples/default` and
   `docs/permissions.md`.
 
-[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.3.1...v1.4.0

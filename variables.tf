@@ -298,7 +298,7 @@ variable "area_roles" {
     the app role `<Area>.Read` (see, run and accept findings of that area's scans), for example Security.Read;
     read_members get it (object IDs, as group members with create_role_groups). run_members is deprecated: there
     are no Run roles any more (whoever may see a scan may run it) and its members join read_members. Per-customer area roles are in customers.area_roles. Which scans each area holds is in the
-    dashboard's README ("Signing in and roles").
+    dashboard's docs/guides/sign-in-and-roles.md.
   EOT
   type = map(object({
     read_members = optional(list(string), [])

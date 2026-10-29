@@ -6,7 +6,7 @@
 #   terraform output -raw graph_request       the scan identity's Graph permissions
 #
 # To use the module from another configuration:
-#   source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.5.1"
+#   source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.5.2"
 module "dashboard" {
   source = "../.."
 

@@ -8,6 +8,8 @@
 - [ ] `terraform fmt -recursive` run; the module and both examples validate
 - [ ] terraform-docs run (`.terraform-docs.yml`), so the README Reference section is current
 - [ ] `CHANGELOG.md` has the change under **Unreleased** (and under **Upgrading** if an apply changes or deletes something)
+- [ ] Documented: every added, changed or removed resource, input or behaviour is in the README; the dashboard's
+  `docs/lld-setup.md` (what the setup creates and how it is wired) and `docs/hld.md` updated when affected
 - [ ] New input or output: a description that says what blank or the default means; the examples' tfvars mention it
 - [ ] New permission or role: `docs/permissions.md` and the README section about it
 - [ ] Version pins in the README and the examples raised when a release is tagged

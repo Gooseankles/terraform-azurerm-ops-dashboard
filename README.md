@@ -6,6 +6,9 @@ read-only Azure and Entra ID tenant checks) to Azure App Service. The module is 
 configuration (see [Use the module](#use-the-module)).
 It needs Terraform 1.6 or newer and azurerm 5.x (azuread 3.x, random 3.x).
 
+How the pieces are wired and what happens at start-up, sign-in and a scan is in the dashboard's
+[setup low-level design](https://github.com/Gooseankles/azure-ops-dashboard/blob/main/docs/lld-setup.md); day-to-day running in its [operations guide](https://github.com/Gooseankles/azure-ops-dashboard/blob/main/docs/operations.md).
+
 One `apply` creates:
 
 - Resource group, Linux App Service plan (B1) and the web app running `trozity/azure-ops-dashboard:stable`
@@ -107,7 +110,8 @@ members and assignments). Set `role_group_prefix = "Azure tools dashboard (<name
 
 So each team sees only its own scans, `area_roles` creates an `<Area>.Read` app role over every tenant, and a
 customer's `area_roles` creates `<Area>.Read-<key>` for that tenant. Areas are `identity`, `platform`, `security` and
-`cost`; which scans each holds is in the dashboard's README. Whoever may see a scan may also run it and accept its
+`cost`; which scans each holds is in the dashboard's
+[sign-in and roles guide](https://github.com/Gooseankles/azure-ops-dashboard/blob/main/docs/guides/sign-in-and-roles.md#roles). Whoever may see a scan may also run it and accept its
 findings, so there are no Run roles (since v1.5.0; `run_members` still works and joins the Read role, and the old
 `.Run` roles and their groups are removed at the next apply). An area only gets a role (and group) when listed;
 members may be empty and added to the group later.
@@ -268,7 +272,7 @@ provider "azurerm" {
 }
 
 module "dashboard" {
-  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.5.1"
+  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.5.2"
 
   name     = "contoso-azure-tools"
   location = "norwayeast"
@@ -363,7 +367,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_alert_memory_pct"></a> [alert\_memory\_pct](#input\_alert\_memory\_pct) | Alarm when the plan's average memory stays above this percentage for 15 minutes. | `number` | `85` | no |
 | <a name="input_allowed_ip_ranges"></a> [allowed\_ip\_ranges](#input\_allowed\_ip\_ranges) | Public IPs or CIDR ranges that may reach the web app ("Enabled from selected virtual networks and IP<br/>addresses"), e.g. ["203.0.113.10", "198.51.100.0/24"]. A bare address means that one address. Empty, together<br/>with an empty allowed\_subnet\_ids, = open to the internet (sign-in still required). | `list(string)` | `[]` | no |
 | <a name="input_allowed_subnet_ids"></a> [allowed\_subnet\_ids](#input\_allowed\_subnet\_ids) | Subnet resource IDs whose traffic may reach the web app (the subnet needs the Microsoft.Web service endpoint). Used together with allowed\_ip\_ranges. | `list(string)` | `[]` | no |
-| <a name="input_area_roles"></a> [area\_roles](#input\_area\_roles) | Area roles over every tenant, keyed by area: identity, platform, security or cost. Each listed area creates<br/>the app role `<Area>.Read` (see, run and accept findings of that area's scans), for example Security.Read;<br/>read\_members get it (object IDs, as group members with create\_role\_groups). run\_members is deprecated: there<br/>are no Run roles any more (whoever may see a scan may run it) and its members join read\_members. Per-customer area roles are in customers.area\_roles. Which scans each area holds is in the<br/>dashboard's README ("Signing in and roles"). | <pre>map(object({<br/>    read_members = optional(list(string), [])<br/>    run_members  = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
+| <a name="input_area_roles"></a> [area\_roles](#input\_area\_roles) | Area roles over every tenant, keyed by area: identity, platform, security or cost. Each listed area creates<br/>the app role `<Area>.Read` (see, run and accept findings of that area's scans), for example Security.Read;<br/>read\_members get it (object IDs, as group members with create\_role\_groups). run\_members is deprecated: there<br/>are no Run roles any more (whoever may see a scan may run it) and its members join read\_members. Per-customer area roles are in customers.area\_roles. Which scans each area holds is in the<br/>dashboard's docs/guides/sign-in-and-roles.md. | <pre>map(object({<br/>    read_members = optional(list(string), [])<br/>    run_members  = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_blob_private_dns_zone_id"></a> [blob\_private\_dns\_zone\_id](#input\_blob\_private\_dns\_zone\_id) | Existing privatelink.blob.core.windows.net private DNS zone (e.g. in a hub), already linked to the VNet. Blank = create one and link it to the VNet. | `string` | `""` | no |
 | <a name="input_continuous_deployment"></a> [continuous\_deployment](#input\_continuous\_deployment) | Let the app pull a new image when Docker Hub's tag moves: turns on App Service continuous deployment (DOCKER\_ENABLE\_CI) and the deploy webhook (output deploy\_webhook\_url), which needs basic authentication on the Kudu (scm) site. false = the app pulls only on restart or image change. | `bool` | `false` | no |
 | <a name="input_create_history_storage"></a> [create\_history\_storage](#input\_create\_history\_storage) | Create a storage account for scan results and run history (reached with the web app's managed identity, no keys). false = keep them on the app's own disk. | `bool` | `true` | no |
