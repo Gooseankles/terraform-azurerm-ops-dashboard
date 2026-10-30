@@ -23,6 +23,15 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-10-30
+
+### Changed
+
+- With `private_access = "private_endpoint"` the history storage account and the secret vault keep public network
+  access on ("Enabled from selected networks") instead of turning it off. Their firewalls deny every network
+  (default action Deny, trusted Azure services allowed), so the private endpoints are still the only way in. The
+  next apply changes this setting in place; nothing is recreated.
+
 ## [1.6.0] - 2026-10-30
 
 ### Added

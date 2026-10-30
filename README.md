@@ -150,7 +150,8 @@ vnet_address_space = ["10.90.0.0/24"]  # a VNet is created: /26 for the app, /27
 
 The web app gets outbound VNet integration and reaches the history storage account and the secret vault through
 private endpoints (with `privatelink.blob.core.windows.net` and `privatelink.vaultcore.azure.net` private DNS zones
-linked to the VNet), and their public network access is turned off. To use an existing network instead, set
+linked to the VNet). Their public network access stays on but is restricted: the firewalls deny every network
+(default action Deny, trusted Azure services allowed), so only the private endpoints get through. To use an existing network instead, set
 `vnet_integration_subnet_id` (delegated to `Microsoft.Web/serverFarms`), `private_endpoint_subnet_id` and, if the
 DNS zones live in a hub, `blob_private_dns_zone_id` and `vault_private_dns_zone_id`. `vnet_route_all = true` sends all outbound traffic through the VNet (it then needs a
 NAT gateway or firewall for internet access). The App Service plan must support VNet integration (Basic or higher).
@@ -301,7 +302,7 @@ provider "azurerm" {
 }
 
 module "dashboard" {
-  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.6.0"
+  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.6.1"
 
   name     = "contoso-azure-tools"
   location = "norwayeast"
@@ -413,9 +414,9 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_history_retention_days"></a> [history\_retention\_days](#input\_history\_retention\_days) | How many days of run history the dashboard keeps. | `number` | `730` | no |
 | <a name="input_image"></a> [image](#input\_image) | Docker Hub image and tag. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app. | `string` | `"trozity/azure-ops-dashboard:stable"` | no |
 | <a name="input_location"></a> [location](#input\_location) | Azure region. | `string` | `"norwayeast"` | no |
-| <a name="input_private_access"></a> [private\_access](#input\_private\_access) | How the web app reaches the history storage account and the secret vault when private\_network = true.<br/>"private\_endpoint": private endpoints and private DNS zones, public network access off.<br/>"service\_endpoint": no private endpoints or DNS zones; the integration subnet gets the Microsoft.Storage and<br/>Microsoft.KeyVault service endpoints and both firewalls let in that subnet only (an existing subnet needs both<br/>service endpoints turned on first). Cheaper and simpler; the storage account must be in the VNet's region or<br/>its paired region. | `string` | `"private_endpoint"` | no |
+| <a name="input_private_access"></a> [private\_access](#input\_private\_access) | How the web app reaches the history storage account and the secret vault when private\_network = true.<br/>"private\_endpoint": private endpoints and private DNS zones; both firewalls deny all other networks (public<br/>network access stays on, restricted to selected networks).<br/>"service\_endpoint": no private endpoints or DNS zones; the integration subnet gets the Microsoft.Storage and<br/>Microsoft.KeyVault service endpoints and both firewalls let in that subnet only (an existing subnet needs both<br/>service endpoints turned on first). Cheaper and simpler; the storage account must be in the VNet's region or<br/>its paired region. | `string` | `"private_endpoint"` | no |
 | <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | Existing subnet for the private endpoints (storage, secret vault, and the web app with app\_private\_endpoint). Set together with vnet\_integration\_subnet\_id; with private\_access = "service\_endpoint" only needed for app\_private\_endpoint. | `string` | `""` | no |
-| <a name="input_private_network"></a> [private\_network](#input\_private\_network) | Join the web app to a virtual network (VNet integration) and reach the history storage account and the secret<br/>vault through private endpoints, with their public network access turned off. Without existing subnets a small<br/>VNet is created (vnet\_address\_space). Costs a little extra (private endpoint and DNS zone). | `bool` | `false` | no |
+| <a name="input_private_network"></a> [private\_network](#input\_private\_network) | Join the web app to a virtual network (VNet integration) and reach the history storage account and the secret<br/>vault through private endpoints; their firewalls deny all other networks (public network access stays on,<br/>restricted to selected networks). Without existing subnets a small<br/>VNet is created (vnet\_address\_space). Costs a little extra (private endpoint and DNS zone). | `bool` | `false` | no |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group to create. Blank = `rg-<name>`. | `string` | `""` | no |
 | <a name="input_role_group_prefix"></a> [role\_group\_prefix](#input\_role\_group\_prefix) | Display name prefix of the role groups. Blank = `Cirrus Watch (<name>)`. | `string` | `""` | no |
 | <a name="input_scan_subscription_ids"></a> [scan\_subscription\_ids](#input\_scan\_subscription\_ids) | Limit the scans to these subscription IDs (AZURE\_SUBSCRIPTION\_IDS). Empty = every subscription the shared SPN can see, so new subscriptions under shared\_spn\_access are picked up automatically. | `list(string)` | `[]` | no |

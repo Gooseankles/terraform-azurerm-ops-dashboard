@@ -336,7 +336,8 @@ variable "role_group_prefix" {
 variable "private_network" {
   description = <<-EOT
     Join the web app to a virtual network (VNet integration) and reach the history storage account and the secret
-    vault through private endpoints, with their public network access turned off. Without existing subnets a small
+    vault through private endpoints; their firewalls deny all other networks (public network access stays on,
+    restricted to selected networks). Without existing subnets a small
     VNet is created (vnet_address_space). Costs a little extra (private endpoint and DNS zone).
   EOT
   type        = bool
@@ -346,7 +347,8 @@ variable "private_network" {
 variable "private_access" {
   description = <<-EOT
     How the web app reaches the history storage account and the secret vault when private_network = true.
-    "private_endpoint": private endpoints and private DNS zones, public network access off.
+    "private_endpoint": private endpoints and private DNS zones; both firewalls deny all other networks (public
+    network access stays on, restricted to selected networks).
     "service_endpoint": no private endpoints or DNS zones; the integration subnet gets the Microsoft.Storage and
     Microsoft.KeyVault service endpoints and both firewalls let in that subnet only (an existing subnet needs both
     service endpoints turned on first). Cheaper and simpler; the storage account must be in the VNet's region or

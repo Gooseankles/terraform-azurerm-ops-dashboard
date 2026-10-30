@@ -20,8 +20,9 @@ resource "azurerm_key_vault" "secrets" {
   rbac_authorization_enabled = true
   soft_delete_retention_days = 90
   purge_protection_enabled   = var.secret_vault_purge_protection
-  # private_network: only the private endpoint reaches it, or (service endpoints) only the integration subnet.
-  public_network_access_enabled = !local.vault_private
+  # Public network access stays on; with private_network the firewall below denies everything except the private
+  # endpoint (it bypasses the firewall) or, with service endpoints, the integration subnet.
+  public_network_access_enabled = true
   tags                          = var.tags
 
   network_acls {

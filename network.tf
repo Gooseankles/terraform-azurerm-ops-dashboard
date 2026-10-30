@@ -2,7 +2,8 @@
 #
 # The web app joins a VNet (outbound VNet integration) and reaches the history
 # storage account and the secret vault either through private endpoints, with
-# their public network access off (private_access = "private_endpoint"), or
+# their firewalls denying all other networks (private_access = "private_endpoint";
+# public network access stays on, restricted by the firewall), or
 # through service endpoints on the integration subnet, with their firewalls
 # letting in that subnet only (private_access = "service_endpoint": no private
 # endpoints, DNS zones or second subnet). Either a VNet is created here
