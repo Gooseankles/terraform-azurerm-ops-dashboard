@@ -405,6 +405,18 @@ variable "app_private_endpoint" {
   default     = false
 }
 
+variable "public_network_access" {
+  description = <<-EOT
+    Keep public network access on for resources reached through a private endpoint, restricted by their firewalls
+    and access restrictions (default). false = turn it off on the history storage account and the secret vault
+    (with private_access = "private_endpoint") and on the web app (with app_private_endpoint), so only the private
+    endpoints work. That can block deployments and Terraform itself (which writes the storage containers through
+    the data plane) when they do not run inside the VNet. Needs private_network = true.
+  EOT
+  type        = bool
+  default     = true
+}
+
 variable "app_private_dns_zone_id" {
   description = "Existing privatelink.azurewebsites.net private DNS zone (e.g. in a hub), already linked to the VNets that must resolve the app. Blank = create one and link it to the VNet."
   type        = string

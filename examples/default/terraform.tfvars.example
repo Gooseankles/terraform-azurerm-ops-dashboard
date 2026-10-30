@@ -142,6 +142,9 @@ user_principal_ids  = []
 # or peering to the VNet and DNS for privatelink.azurewebsites.net).
 # app_private_endpoint    = true
 # app_private_dns_zone_id = "/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.Network/privateDnsZones/privatelink.azurewebsites.net"
+# Turn public network access off where there is a private endpoint (default:
+# on, restricted by firewalls). Can block deployments from outside the VNet.
+# public_network_access = false
 
 # --- App settings ---
 

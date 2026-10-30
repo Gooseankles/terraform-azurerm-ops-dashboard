@@ -200,6 +200,23 @@ enough for this app on one or a few instances; Microsoft recommends /26 when a p
 subnet is shared by several plans. The private endpoint subnet needs one address per endpoint (up to three
 here), so a /28 is plenty there too.
 
+### Public network access off
+
+```hcl
+private_network       = true
+app_private_endpoint  = true
+public_network_access = false
+```
+
+By default the storage account, the secret vault and the web app keep public network access on, restricted by
+their firewalls and access restrictions, so deployments and Terraform runs from outside the VNet still work.
+`public_network_access = false` turns it off on every one of them that has a private endpoint: storage and vault
+with `private_access = "private_endpoint"`, the web app with `app_private_endpoint`. Only the private endpoints
+then work. Terraform writes the storage containers through the data plane and the deploy webhook calls the scm site
+from the internet, so run Terraform from inside the VNet and leave `continuous_deployment` off (it and
+`allowed_ip_ranges` / `allowed_subnet_ids` are refused with the web app's public access off). Resources reached
+through service endpoints keep public access on, as they need it.
+
 ## Load alarms
 
 ```hcl
@@ -303,7 +320,7 @@ provider "azurerm" {
 }
 
 module "dashboard" {
-  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.7.0"
+  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.8.0"
 
   name     = "contoso-azure-tools"
   location = "norwayeast"
@@ -419,6 +436,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_private_access"></a> [private\_access](#input\_private\_access) | How the web app reaches the history storage account and the secret vault when private\_network = true.<br/>"private\_endpoint": private endpoints and private DNS zones; both firewalls deny all other networks (public<br/>network access stays on, restricted to selected networks).<br/>"service\_endpoint": no private endpoints or DNS zones; the integration subnet gets the Microsoft.Storage and<br/>Microsoft.KeyVault service endpoints and both firewalls let in that subnet only (an existing subnet needs both<br/>service endpoints turned on first). Cheaper and simpler; the storage account must be in the VNet's region or<br/>its paired region. | `string` | `"private_endpoint"` | no |
 | <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | Existing subnet for the private endpoints (storage, secret vault, and the web app with app\_private\_endpoint). Set together with vnet\_integration\_subnet\_id; with private\_access = "service\_endpoint" only needed for app\_private\_endpoint. | `string` | `""` | no |
 | <a name="input_private_network"></a> [private\_network](#input\_private\_network) | Join the web app to a virtual network (VNet integration) and reach the history storage account and the secret<br/>vault through private endpoints; their firewalls deny all other networks (public network access stays on,<br/>restricted to selected networks). Without existing subnets a small<br/>VNet is created (vnet\_address\_space). Costs a little extra (private endpoint and DNS zone). | `bool` | `false` | no |
+| <a name="input_public_network_access"></a> [public\_network\_access](#input\_public\_network\_access) | Keep public network access on for resources reached through a private endpoint, restricted by their firewalls<br/>and access restrictions (default). false = turn it off on the history storage account and the secret vault<br/>(with private\_access = "private\_endpoint") and on the web app (with app\_private\_endpoint), so only the private<br/>endpoints work. That can block deployments and Terraform itself (which writes the storage containers through<br/>the data plane) when they do not run inside the VNet. Needs private\_network = true. | `bool` | `true` | no |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group to create. Blank = `rg-<name>`. | `string` | `""` | no |
 | <a name="input_role_group_prefix"></a> [role\_group\_prefix](#input\_role\_group\_prefix) | Display name prefix of the role groups. Blank = `Cirrus Watch (<name>)`. | `string` | `""` | no |
 | <a name="input_scan_subscription_ids"></a> [scan\_subscription\_ids](#input\_scan\_subscription\_ids) | Limit the scans to these subscription IDs (AZURE\_SUBSCRIPTION\_IDS). Empty = every subscription the shared SPN can see, so new subscriptions under shared\_spn\_access are picked up automatically. | `list(string)` | `[]` | no |

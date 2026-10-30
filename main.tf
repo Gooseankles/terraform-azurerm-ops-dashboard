@@ -52,9 +52,10 @@ resource "azurerm_linux_web_app" "this" {
   https_only          = true
   tags                = var.tags
 
-  # Public network access stays on; access restrictions below decide who gets in (with app_private_endpoint the
-  # private endpoint, which they do not apply to, plus any allowed IPs or subnets).
-  public_network_access_enabled = true
+  # Public network access stays on (unless public_network_access = false); access restrictions below decide who
+  # gets in (with app_private_endpoint the private endpoint, which they do not apply to, plus any allowed IPs or
+  # subnets).
+  public_network_access_enabled = !local.app_public_off
 
   # The deploy webhook signs in to the Kudu site with the publishing
   # credentials; without continuous deployment they stay off.
@@ -157,6 +158,18 @@ resource "azurerm_linux_web_app" "this" {
       condition     = !var.app_private_endpoint || var.private_network
       error_message = "app_private_endpoint needs private_network = true (the endpoint sits in that VNet)."
     }
+    precondition {
+      condition     = var.public_network_access || var.private_network
+      error_message = "public_network_access = false needs private_network = true: without private endpoints nothing could reach the resources."
+    }
+    precondition {
+      condition     = !local.app_public_off || length(var.allowed_ip_ranges) + length(var.allowed_subnet_ids) == 0
+      error_message = "With public_network_access = false and app_private_endpoint the web app has no public address, so allowed_ip_ranges and allowed_subnet_ids would do nothing: leave them empty."
+    }
+    precondition {
+      condition     = !local.app_public_off || !var.continuous_deployment
+      error_message = "With public_network_access = false and app_private_endpoint the deploy webhook (called from the internet) cannot reach the scm site: set continuous_deployment = false."
+    }
   }
 }
 
@@ -183,9 +196,10 @@ resource "azurerm_storage_account" "history" {
   allow_nested_items_to_be_public = false
   shared_access_key_enabled       = false # Entra (managed identity) only
   default_to_oauth_authentication = true
-  # Public network access stays on; with private_network the firewall below denies everything except the private
-  # endpoint (it bypasses the firewall) or, with service endpoints, the integration subnet.
-  public_network_access = "Enabled"
+  # Public network access stays on (unless public_network_access = false); with private_network the firewall below
+  # denies everything except the private endpoint (it bypasses the firewall) or, with service endpoints, the
+  # integration subnet.
+  public_network_access = local.history_public_off ? "Disabled" : "Enabled"
   tags                  = var.tags
 
   dynamic "network_rules" {

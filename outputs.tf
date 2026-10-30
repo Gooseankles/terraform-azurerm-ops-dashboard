@@ -127,9 +127,9 @@ output "private_network" {
     private_access        = var.private_access
     private_endpoint_id   = local.history_private ? azurerm_private_endpoint.history_blob[0].id : null
     vault_endpoint_id     = local.vault_private ? azurerm_private_endpoint.secret_vault[0].id : null
-    storage_public_access = local.history_private ? "Enabled, private endpoint only (firewall denies all networks)" : "Enabled, integration subnet only"
+    storage_public_access = local.history_public_off ? "Disabled" : (local.history_private ? "Enabled, private endpoint only (firewall denies all networks)" : "Enabled, integration subnet only")
     app_endpoint_id       = local.app_private ? azurerm_private_endpoint.app[0].id : null
     app_private_ip        = local.app_private ? azurerm_private_endpoint.app[0].private_service_connection[0].private_ip_address : null
-    app_public_access     = local.app_private ? (length(local.allowed_ip_ranges) + length(var.allowed_subnet_ids) > 0 ? "Enabled, private endpoint and allowed IPs/subnets only" : "Enabled, private endpoint only (access restrictions deny all networks)") : "Enabled"
+    app_public_access     = local.app_public_off ? "Disabled" : local.app_private ? (length(local.allowed_ip_ranges) + length(var.allowed_subnet_ids) > 0 ? "Enabled, private endpoint and allowed IPs/subnets only" : "Enabled, private endpoint only (access restrictions deny all networks)") : "Enabled"
   } : null
 }

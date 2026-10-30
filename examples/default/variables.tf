@@ -401,6 +401,12 @@ variable "app_private_endpoint" {
   default     = false
 }
 
+variable "public_network_access" {
+  description = "false = turn public network access off on the storage account, secret vault and web app where they have private endpoints (only the endpoints work; can block deployments). true = keep it on, restricted."
+  type        = bool
+  default     = true
+}
+
 variable "app_private_dns_zone_id" {
   description = "Existing privatelink.azurewebsites.net private DNS zone (e.g. in a hub). Blank = create one and link it to the VNet."
   type        = string

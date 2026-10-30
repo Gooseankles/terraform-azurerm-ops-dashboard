@@ -23,6 +23,16 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-30
+
+### Added
+
+- `public_network_access` (default `true`): `false` turns public network access off on the history storage
+  account and the secret vault (with `private_access = "private_endpoint"`) and on the web app (with
+  `app_private_endpoint`), so only the private endpoints work. Needs `private_network = true`; with the web app's
+  public access off, `allowed_ip_ranges`, `allowed_subnet_ids` and `continuous_deployment` are refused. The
+  `private_network` output says `Disabled` for what is turned off.
+
 ## [1.7.0] - 2026-10-30
 
 ### Changed

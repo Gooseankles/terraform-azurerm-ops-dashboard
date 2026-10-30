@@ -19,6 +19,10 @@ locals {
   history_private       = var.private_network && var.create_history_storage && local.use_private_endpoints
   vault_private         = var.private_network && var.create_secret_vault && local.use_private_endpoints
   app_private           = var.private_network && var.app_private_endpoint
+  # public_network_access = false: public access off wherever a private endpoint exists.
+  history_public_off = local.history_private && !var.public_network_access
+  vault_public_off   = local.vault_private && !var.public_network_access
+  app_public_off     = local.app_private && !var.public_network_access
   # Service endpoints: the integration subnet is the only network let in.
   service_endpoint_subnet_ids = var.private_network && !local.use_private_endpoints ? [local.app_subnet_id] : []
   create_vnet                 = var.private_network && var.vnet_integration_subnet_id == ""
