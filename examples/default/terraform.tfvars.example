@@ -124,12 +124,15 @@ user_principal_ids  = []
 # Subnets (with the Microsoft.Web service endpoint) that may reach it too.
 # allowed_subnet_ids = ["/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/<subnet>"]
 
-# Storage and secret vault reached only through private endpoints (public
-# access off), web app joined to a VNet. Without the subnet IDs a small VNet
-# is created.
+# Web app joined to a VNet; the storage and secret vault firewalls let in only
+# its subnet (service endpoints, no extra cost). Without the subnet IDs a small
+# VNet is created.
 # private_network    = true
 # vnet_address_space = ["10.90.0.0/24"]
-# Use an existing VNet instead (set both subnets):
+# Private endpoints instead of service endpoints (they cost money):
+# private_access = "private_endpoint"
+# Use an existing VNet instead (the app subnet needs the Microsoft.Storage and
+# Microsoft.KeyVault service endpoints; the second subnet only for private endpoints):
 # vnet_integration_subnet_id = "/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/<app-subnet>"
 # private_endpoint_subnet_id = "/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/<pe-subnet>"
 # Existing private DNS zones (e.g. in a hub), already linked to the VNet:

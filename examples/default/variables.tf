@@ -337,10 +337,10 @@ variable "role_group_prefix" {
 
 variable "private_network" {
   description = <<-EOT
-    Join the web app to a virtual network (VNet integration) and reach the history storage account and the secret
-    vault through private endpoints; their firewalls deny all other networks (public network access stays on,
-    restricted to selected networks). Without existing subnets a small
-    VNet is created (vnet_address_space). Costs a little extra (private endpoint and DNS zone).
+    Join the web app to a virtual network (VNet integration) and let only its subnet reach the history storage
+    account and the secret vault: their firewalls deny all other networks and let in the integration subnet through
+    service endpoints (no extra cost). private_access = "private_endpoint" uses private endpoints instead (they cost
+    money). Without existing subnets a small VNet is created (vnet_address_space).
   EOT
   type        = bool
   default     = false
@@ -349,15 +349,14 @@ variable "private_network" {
 variable "private_access" {
   description = <<-EOT
     How the web app reaches the history storage account and the secret vault when private_network = true.
-    "private_endpoint": private endpoints and private DNS zones; both firewalls deny all other networks (public
-    network access stays on, restricted to selected networks).
-    "service_endpoint": no private endpoints or DNS zones; the integration subnet gets the Microsoft.Storage and
-    Microsoft.KeyVault service endpoints and both firewalls let in that subnet only (an existing subnet needs both
-    service endpoints turned on first). Cheaper and simpler; the storage account must be in the VNet's region or
-    its paired region.
+    "service_endpoint" (default): the integration subnet gets the Microsoft.Storage and Microsoft.KeyVault service
+    endpoints and both firewalls let in that subnet only (an existing subnet needs both service endpoints turned on
+    first). No private endpoints or DNS zones, so no extra cost; keep the storage account in the VNet's region.
+    "private_endpoint": private endpoints and private DNS zones (billed per endpoint and per GB); both firewalls
+    deny all other networks.
   EOT
   type        = string
-  default     = "private_endpoint"
+  default     = "service_endpoint"
 
   validation {
     condition     = contains(["private_endpoint", "service_endpoint"], var.private_access)
@@ -414,7 +413,7 @@ variable "app_private_dns_zone_id" {
 }
 
 variable "vnet_route_all" {
-  description = "Send all the web app's outbound traffic through the VNet (needs a NAT gateway or firewall there for internet access). false = only private addresses go through the VNet, which is all the private endpoint needs."
+  description = "Send all the web app's outbound traffic through the VNet (needs a NAT gateway or firewall there for internet access). false = only private addresses go through the VNet, which is all the service endpoints or a private endpoint need."
   type        = bool
   default     = false
 }

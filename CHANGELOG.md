@@ -9,6 +9,12 @@ each is a git tag `v<major>.<minor>.<patch>` to pin with `?ref=`. The app has it
 
 Read this before you raise `?ref=`.
 
+- **v1.9.0: `private_access` defaults to `"service_endpoint"`.** A deployment with `private_network = true` that
+  never set `private_access` loses its storage and vault private endpoints and private DNS zones on the next apply,
+  and the integration subnet gets the service endpoints instead. To keep the private endpoints, set
+  `private_access = "private_endpoint"` before you upgrade. With an existing subnet, turn on its
+  `Microsoft.Storage` and `Microsoft.KeyVault` service endpoints first.
+
 - **v1.5.0: the `<Area>.Run` app roles and their Entra groups are deleted on the next apply.** People in
   `run_members` are put in the matching `.Read` group instead, and the app (0.57.0.0 or newer) lets everyone who can
   see a scan run it, so nobody loses access. `run_members` still works but is deprecated: move those people to
@@ -22,6 +28,19 @@ Read this before you raise `?ref=`.
   its resources through the `moved` blocks in `examples/default`.
 
 ## [Unreleased]
+
+## [1.9.0] - 2026-10-30
+
+### Changed
+
+- `private_access` defaults to `"service_endpoint"` (was `"private_endpoint"`): with `private_network = true` the
+  storage account and secret vault firewalls let in the app's integration subnet through service endpoints, which
+  cost nothing. Set `private_access = "private_endpoint"` for private endpoints.
+- `public_network_access = false` now needs a private endpoint (it did nothing without one).
+- No empty private endpoint subnet is made when nothing uses it; `private_network.storage_public_access` is null
+  without history storage.
+- Docs: Terraform runs from outside the VNet work (containers are created through Resource Manager); the web app is
+  not a trusted Azure service.
 
 ## [1.8.0] - 2026-10-30
 
@@ -177,7 +196,11 @@ Read this before you raise `?ref=`.
 - The module at the repo root, split from the app repo, with a root configuration in `examples/default` and
   `docs/permissions.md`.
 
-[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.8.0...v1.9.0
+[1.8.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.7.0...v1.8.0
+[1.7.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.6.1...v1.7.0
+[1.6.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.4...v1.6.0
 [1.5.4]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.3...v1.5.4
 [1.5.3]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.2...v1.5.3

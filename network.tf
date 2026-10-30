@@ -1,12 +1,12 @@
 # --- Private network (private_network = true) ---
 #
 # The web app joins a VNet (outbound VNet integration) and reaches the history
-# storage account and the secret vault either through private endpoints, with
-# their firewalls denying all other networks (private_access = "private_endpoint";
-# public network access stays on, restricted by the firewall), or
-# through service endpoints on the integration subnet, with their firewalls
-# letting in that subnet only (private_access = "service_endpoint": no private
-# endpoints, DNS zones or second subnet). Either a VNet is created here
+# storage account and the secret vault either through service endpoints on the
+# integration subnet, with their firewalls letting in that subnet only
+# (private_access = "service_endpoint", the default: no private endpoints, DNS
+# zones or second subnet, so no extra cost), or through private endpoints, with
+# their firewalls denying all other networks (private_access = "private_endpoint").
+# Public network access stays on in both cases, restricted by the firewall. Either a VNet is created here
 # (vnet_address_space) or existing subnets are used (vnet_integration_subnet_id,
 # plus private_endpoint_subnet_id for private endpoints).
 #
@@ -80,7 +80,7 @@ resource "azurerm_subnet" "app" {
 }
 
 resource "azurerm_subnet" "private_endpoints" {
-  count                = local.create_vnet && var.private_endpoint_subnet_id == "" && (local.use_private_endpoints || local.app_private) ? 1 : 0
+  count                = local.create_vnet && var.private_endpoint_subnet_id == "" && (local.history_private || local.vault_private || local.app_private) ? 1 : 0
   name                 = "snet-private-endpoints"
   resource_group_name  = azurerm_resource_group.this.name
   virtual_network_name = azurerm_virtual_network.this[0].name

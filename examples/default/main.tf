@@ -1,6 +1,6 @@
 # Deploys the dashboard with the module at the root of this repo. To use the
 # module from another configuration instead:
-#   source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.8.0"
+#   source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.9.0"
 module "dashboard" {
   source = "../.."
 

@@ -63,7 +63,8 @@ resource "azurerm_linux_web_app" "this" {
   ftp_publish_basic_authentication_enabled       = false
 
   # Outbound through the VNet (private_network): reaches the history storage
-  # and the secret vault by their private endpoints.
+  # and the secret vault through service endpoints on the subnet, or their
+  # private endpoints.
   virtual_network_subnet_id = local.app_subnet_id
 
   # System-assigned: the scan tools in the home tenant (blank client ID in
@@ -159,8 +160,8 @@ resource "azurerm_linux_web_app" "this" {
       error_message = "app_private_endpoint needs private_network = true (the endpoint sits in that VNet)."
     }
     precondition {
-      condition     = var.public_network_access || var.private_network
-      error_message = "public_network_access = false needs private_network = true: without private endpoints nothing could reach the resources."
+      condition     = var.public_network_access || local.history_private || local.vault_private || local.app_private
+      error_message = "public_network_access = false needs a private endpoint: private_network = true with private_access = \"private_endpoint\" or app_private_endpoint = true."
     }
     precondition {
       condition     = !local.app_public_off || length(var.allowed_ip_ranges) + length(var.allowed_subnet_ids) == 0

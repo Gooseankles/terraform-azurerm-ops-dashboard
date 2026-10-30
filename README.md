@@ -145,33 +145,37 @@ groups (same people). Whoever runs Terraform then also needs to create groups (G
 
 ```hcl
 private_network    = true
-vnet_address_space = ["10.90.0.0/24"]  # a VNet is created: /26 for the app, /27 for private endpoints
+vnet_address_space = ["10.90.0.0/24"]  # a VNet is created with a /26 for the app
 ```
 
-The web app gets outbound VNet integration and reaches the history storage account and the secret vault through
-private endpoints (with `privatelink.blob.core.windows.net` and `privatelink.vaultcore.azure.net` private DNS zones
-linked to the VNet). Their public network access stays on but is restricted: the firewalls deny every network
-(default action Deny, trusted Azure services allowed), so only the private endpoints get through. To use an existing network instead, set
-`vnet_integration_subnet_id` (delegated to `Microsoft.Web/serverFarms`), `private_endpoint_subnet_id` and, if the
-DNS zones live in a hub, `blob_private_dns_zone_id` and `vault_private_dns_zone_id`. `vnet_route_all = true` sends all outbound traffic through the VNet (it then needs a
-NAT gateway or firewall for internet access). The App Service plan must support VNet integration (Basic or higher).
+The web app gets outbound VNet integration, and the history storage account and the secret vault let in only its
+subnet: their public network access stays on, but their firewalls deny every network (default action Deny) except
+the integration subnet, which reaches them through the `Microsoft.Storage` and `Microsoft.KeyVault` service
+endpoints. Service endpoints cost nothing; no private endpoints, private DNS zones or second subnet are made. The
+app's traffic to them goes through the VNet even with `vnet_route_all = false`. Keep the storage account in the
+VNet's region. Trusted Azure services stay allowed (the web app is not one of them, it gets in only through its
+subnet); they still need a role to read anything.
 
-Without private endpoints:
+To use an existing network, set `vnet_integration_subnet_id` (delegated to `Microsoft.Web/serverFarms`). That subnet
+needs both service endpoints turned on before the apply (a created one gets them). `vnet_route_all = true` sends all
+outbound traffic through the VNet (it then needs a NAT gateway or firewall for internet access). The App Service
+plan must support VNet integration (Basic or higher).
+
+With private endpoints instead (they are billed per endpoint and per GB):
 
 ```hcl
-private_network            = true
-private_access             = "service_endpoint"
-vnet_integration_subnet_id = "/subscriptions/.../virtualNetworks/vnet-spoke/subnets/snet-dashboard"
+private_network = true
+private_access  = "private_endpoint"
 ```
 
-The storage account and the secret vault keep their public endpoints, but their firewalls deny everything except
-the integration subnet (through the `Microsoft.Storage` and `Microsoft.KeyVault` service endpoints). No private
-endpoints, private DNS zones or second subnet. An existing subnet needs both service endpoints turned on before the
-apply (a created one gets them). The app's traffic to them goes through the VNet even with `vnet_route_all = false`.
-The storage account must be in the VNet's region or its paired region. Trusted Azure services stay allowed, as with
-private endpoints; they still need a role to read anything.
-Terraform creates the containers through the storage data plane, so run it from a network that can reach the
-private endpoint, or apply once with `private_network = false` first so the containers exist.
+The storage account and the secret vault get private endpoints in a second subnet, with
+`privatelink.blob.core.windows.net` and `privatelink.vaultcore.azure.net` private DNS zones linked to the VNet, and
+their firewalls deny every network, so only the private endpoints get through. With an existing network also set
+`private_endpoint_subnet_id` and, if the DNS zones live in a hub, `blob_private_dns_zone_id` and
+`vault_private_dns_zone_id`.
+
+Terraform runs from outside the VNet still work in both modes: the module creates the storage containers through
+Azure Resource Manager, not the storage data plane, and writes no vault secrets.
 
 ### The web app behind a private endpoint
 
@@ -212,8 +216,7 @@ By default the storage account, the secret vault and the web app keep public net
 their firewalls and access restrictions, so deployments and Terraform runs from outside the VNet still work.
 `public_network_access = false` turns it off on every one of them that has a private endpoint: storage and vault
 with `private_access = "private_endpoint"`, the web app with `app_private_endpoint`. Only the private endpoints
-then work. Terraform writes the storage containers through the data plane and the deploy webhook calls the scm site
-from the internet, so run Terraform from inside the VNet and leave `continuous_deployment` off (it and
+then work. The deploy webhook calls the scm site from the internet, so leave `continuous_deployment` off (it and
 `allowed_ip_ranges` / `allowed_subnet_ids` are refused with the web app's public access off). Resources reached
 through service endpoints keep public access on, as they need it.
 
@@ -320,7 +323,7 @@ provider "azurerm" {
 }
 
 module "dashboard" {
-  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.8.0"
+  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.9.0"
 
   name     = "contoso-azure-tools"
   location = "norwayeast"
@@ -433,10 +436,10 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_history_retention_days"></a> [history\_retention\_days](#input\_history\_retention\_days) | How many days of run history the dashboard keeps. | `number` | `730` | no |
 | <a name="input_image"></a> [image](#input\_image) | Docker Hub image and tag. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app. | `string` | `"trozity/azure-ops-dashboard:stable"` | no |
 | <a name="input_location"></a> [location](#input\_location) | Azure region. | `string` | `"norwayeast"` | no |
-| <a name="input_private_access"></a> [private\_access](#input\_private\_access) | How the web app reaches the history storage account and the secret vault when private\_network = true.<br/>"private\_endpoint": private endpoints and private DNS zones; both firewalls deny all other networks (public<br/>network access stays on, restricted to selected networks).<br/>"service\_endpoint": no private endpoints or DNS zones; the integration subnet gets the Microsoft.Storage and<br/>Microsoft.KeyVault service endpoints and both firewalls let in that subnet only (an existing subnet needs both<br/>service endpoints turned on first). Cheaper and simpler; the storage account must be in the VNet's region or<br/>its paired region. | `string` | `"private_endpoint"` | no |
-| <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | Existing subnet for the private endpoints (storage, secret vault, and the web app with app\_private\_endpoint). Set together with vnet\_integration\_subnet\_id; with private\_access = "service\_endpoint" only needed for app\_private\_endpoint. | `string` | `""` | no |
-| <a name="input_private_network"></a> [private\_network](#input\_private\_network) | Join the web app to a virtual network (VNet integration) and reach the history storage account and the secret<br/>vault through private endpoints; their firewalls deny all other networks (public network access stays on,<br/>restricted to selected networks). Without existing subnets a small<br/>VNet is created (vnet\_address\_space). Costs a little extra (private endpoint and DNS zone). | `bool` | `false` | no |
-| <a name="input_public_network_access"></a> [public\_network\_access](#input\_public\_network\_access) | Keep public network access on for resources reached through a private endpoint, restricted by their firewalls<br/>and access restrictions (default). false = turn it off on the history storage account and the secret vault<br/>(with private\_access = "private\_endpoint") and on the web app (with app\_private\_endpoint), so only the private<br/>endpoints work. That can block deployments and Terraform itself (which writes the storage containers through<br/>the data plane) when they do not run inside the VNet. Needs private\_network = true. | `bool` | `true` | no |
+| <a name="input_private_access"></a> [private\_access](#input\_private\_access) | How the web app reaches the history storage account and the secret vault when private\_network = true.<br/>"service\_endpoint" (default): the integration subnet gets the Microsoft.Storage and Microsoft.KeyVault service<br/>endpoints and both firewalls let in that subnet only (an existing subnet needs both service endpoints turned on<br/>first). No private endpoints or DNS zones, so no extra cost; keep the storage account in the VNet's region.<br/>"private\_endpoint": private endpoints and private DNS zones (billed per endpoint and per GB); both firewalls<br/>deny all other networks. | `string` | `"service_endpoint"` | no |
+| <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | Existing subnet for the private endpoints (storage and secret vault with private\_access = "private\_endpoint", the web app with app\_private\_endpoint). Not needed otherwise. | `string` | `""` | no |
+| <a name="input_private_network"></a> [private\_network](#input\_private\_network) | Join the web app to a virtual network (VNet integration) and let only its subnet reach the history storage<br/>account and the secret vault: their firewalls deny all other networks and let in the integration subnet through<br/>service endpoints (no extra cost). private\_access = "private\_endpoint" uses private endpoints instead (they cost<br/>money). Without existing subnets a small VNet is created (vnet\_address\_space). | `bool` | `false` | no |
+| <a name="input_public_network_access"></a> [public\_network\_access](#input\_public\_network\_access) | Keep public network access on for resources reached through a private endpoint, restricted by their firewalls<br/>and access restrictions (default). false = turn it off on the history storage account and the secret vault<br/>(with private\_access = "private\_endpoint") and on the web app (with app\_private\_endpoint), so only the private<br/>endpoints work. That can block deployments that do not run inside the VNet. Needs private\_network = true and<br/>a private endpoint. | `bool` | `true` | no |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group to create. Blank = `rg-<name>`. | `string` | `""` | no |
 | <a name="input_role_group_prefix"></a> [role\_group\_prefix](#input\_role\_group\_prefix) | Display name prefix of the role groups. Blank = `Cirrus Watch (<name>)`. | `string` | `""` | no |
 | <a name="input_scan_subscription_ids"></a> [scan\_subscription\_ids](#input\_scan\_subscription\_ids) | Limit the scans to these subscription IDs (AZURE\_SUBSCRIPTION\_IDS). Empty = every subscription the shared SPN can see, so new subscriptions under shared\_spn\_access are picked up automatically. | `list(string)` | `[]` | no |
@@ -451,9 +454,9 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags on the Azure resources. | `map(string)` | `{}` | no |
 | <a name="input_user_principal_ids"></a> [user\_principal\_ids](#input\_user\_principal\_ids) | Object IDs of users or groups that get the read-only User role on the dashboard. | `list(string)` | `[]` | no |
 | <a name="input_vault_private_dns_zone_id"></a> [vault\_private\_dns\_zone\_id](#input\_vault\_private\_dns\_zone\_id) | Existing privatelink.vaultcore.azure.net private DNS zone (e.g. in a hub), already linked to the VNet. Blank = create one and link it to the VNet. | `string` | `""` | no |
-| <a name="input_vnet_address_space"></a> [vnet\_address\_space](#input\_vnet\_address\_space) | Address space of the VNet created when private\_network = true and no subnets are given. A /24 is plenty: a /26 for the app and a /27 for private endpoints. | `list(string)` | <pre>[<br/>  "10.90.0.0/24"<br/>]</pre> | no |
-| <a name="input_vnet_integration_subnet_id"></a> [vnet\_integration\_subnet\_id](#input\_vnet\_integration\_subnet\_id) | Existing subnet for the web app's VNet integration (delegated to Microsoft.Web/serverFarms, /28 or larger). With private endpoints set together with private\_endpoint\_subnet\_id; blank = create a VNet. | `string` | `""` | no |
-| <a name="input_vnet_route_all"></a> [vnet\_route\_all](#input\_vnet\_route\_all) | Send all the web app's outbound traffic through the VNet (needs a NAT gateway or firewall there for internet access). false = only private addresses go through the VNet, which is all the private endpoint needs. | `bool` | `false` | no |
+| <a name="input_vnet_address_space"></a> [vnet\_address\_space](#input\_vnet\_address\_space) | Address space of the VNet created when private\_network = true and no subnets are given. A /24 is plenty: a /26 for the app, and a /27 for private endpoints when they are used. | `list(string)` | <pre>[<br/>  "10.90.0.0/24"<br/>]</pre> | no |
+| <a name="input_vnet_integration_subnet_id"></a> [vnet\_integration\_subnet\_id](#input\_vnet\_integration\_subnet\_id) | Existing subnet for the web app's VNet integration (delegated to Microsoft.Web/serverFarms, /28 or larger). With service endpoints (the default) it needs the Microsoft.Storage and Microsoft.KeyVault service endpoints turned on; with private endpoints set it together with private\_endpoint\_subnet\_id. Blank = create a VNet. | `string` | `""` | no |
+| <a name="input_vnet_route_all"></a> [vnet\_route\_all](#input\_vnet\_route\_all) | Send all the web app's outbound traffic through the VNet (needs a NAT gateway or firewall there for internet access). false = only private addresses go through the VNet, which is all the service endpoints or a private endpoint need. | `bool` | `false` | no |
 
 ### Outputs
 
