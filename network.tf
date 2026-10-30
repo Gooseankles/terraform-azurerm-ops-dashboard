@@ -8,17 +8,21 @@
 # endpoints, DNS zones or second subnet). Either a VNet is created here
 # (vnet_address_space) or existing subnets are used (vnet_integration_subnet_id,
 # plus private_endpoint_subnet_id for private endpoints).
+#
+# app_private_endpoint = true also gives the web app itself an inbound private
+# endpoint and turns its public network access off.
 
 locals {
   use_private_endpoints = var.private_access == "private_endpoint"
   history_private       = var.private_network && var.create_history_storage && local.use_private_endpoints
   vault_private         = var.private_network && var.create_secret_vault && local.use_private_endpoints
+  app_private           = var.private_network && var.app_private_endpoint
   # Service endpoints: the integration subnet is the only network let in.
   service_endpoint_subnet_ids = var.private_network && !local.use_private_endpoints ? [local.app_subnet_id] : []
   create_vnet                 = var.private_network && var.vnet_integration_subnet_id == ""
 
   app_subnet_id = !var.private_network ? null : (local.create_vnet ? azurerm_subnet.app[0].id : var.vnet_integration_subnet_id)
-  pe_subnet_id = !(local.history_private || local.vault_private) ? null : (
+  pe_subnet_id = !(local.history_private || local.vault_private || local.app_private) ? null : (
     var.private_endpoint_subnet_id != "" ? var.private_endpoint_subnet_id : (local.create_vnet ? azurerm_subnet.private_endpoints[0].id : null)
   )
 
@@ -30,6 +34,9 @@ locals {
 
   create_vault_dns_zone = local.vault_private && var.vault_private_dns_zone_id == ""
   vault_dns_zone_ids    = !local.vault_private ? [] : (local.create_vault_dns_zone ? [azurerm_private_dns_zone.vault[0].id] : [var.vault_private_dns_zone_id])
+
+  create_app_dns_zone = local.app_private && var.app_private_dns_zone_id == ""
+  app_dns_zone_ids    = !local.app_private ? [] : (local.create_app_dns_zone ? [azurerm_private_dns_zone.app[0].id] : [var.app_private_dns_zone_id])
 }
 
 resource "azurerm_virtual_network" "this" {
@@ -67,7 +74,7 @@ resource "azurerm_subnet" "app" {
 }
 
 resource "azurerm_subnet" "private_endpoints" {
-  count                = local.create_vnet && var.private_endpoint_subnet_id == "" && local.use_private_endpoints ? 1 : 0
+  count                = local.create_vnet && var.private_endpoint_subnet_id == "" && (local.use_private_endpoints || local.app_private) ? 1 : 0
   name                 = "snet-private-endpoints"
   resource_group_name  = azurerm_resource_group.this.name
   virtual_network_name = azurerm_virtual_network.this[0].name
@@ -159,5 +166,50 @@ resource "azurerm_private_endpoint" "secret_vault" {
   private_dns_zone_group {
     name                 = "vault"
     private_dns_zone_ids = local.vault_dns_zone_ids
+  }
+}
+
+# Inbound: the web app (and its scm site) reached only through this endpoint.
+resource "azurerm_private_dns_zone" "app" {
+  count               = local.create_app_dns_zone ? 1 : 0
+  name                = "privatelink.azurewebsites.net"
+  resource_group_name = azurerm_resource_group.this.name
+  tags                = var.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "app" {
+  count                = local.create_app_dns_zone ? 1 : 0
+  name                 = "link-${var.name}"
+  private_dns_zone_id  = azurerm_private_dns_zone.app[0].id
+  virtual_network_id   = local.vnet_id
+  registration_enabled = false
+  tags                 = var.tags
+}
+
+resource "azurerm_private_endpoint" "app" {
+  count               = local.app_private ? 1 : 0
+  name                = "pe-${var.name}"
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+  subnet_id           = local.pe_subnet_id
+  tags                = var.tags
+
+  lifecycle {
+    precondition {
+      condition     = local.pe_subnet_id != null
+      error_message = "With vnet_integration_subnet_id set, also set private_endpoint_subnet_id."
+    }
+  }
+
+  private_service_connection {
+    name                           = "sites"
+    private_connection_resource_id = azurerm_linux_web_app.this.id
+    subresource_names              = ["sites"]
+    is_manual_connection           = false
+  }
+
+  private_dns_zone_group {
+    name                 = "sites"
+    private_dns_zone_ids = local.app_dns_zone_ids
   }
 }

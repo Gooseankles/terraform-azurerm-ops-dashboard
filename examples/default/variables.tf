@@ -376,7 +376,7 @@ variable "vnet_integration_subnet_id" {
 }
 
 variable "private_endpoint_subnet_id" {
-  description = "Existing subnet for the private endpoints (storage, secret vault). Set together with vnet_integration_subnet_id; not used with private_access = \"service_endpoint\"."
+  description = "Existing subnet for the private endpoints (storage, secret vault, and the web app with app_private_endpoint). Set together with vnet_integration_subnet_id; with private_access = \"service_endpoint\" only needed for app_private_endpoint."
   type        = string
   default     = ""
 }
@@ -389,6 +389,18 @@ variable "blob_private_dns_zone_id" {
 
 variable "vault_private_dns_zone_id" {
   description = "Existing privatelink.vaultcore.azure.net private DNS zone (e.g. in a hub), already linked to the VNet. Blank = create one and link it to the VNet."
+  type        = string
+  default     = ""
+}
+
+variable "app_private_endpoint" {
+  description = "Reach the web app only through a private endpoint in the VNet (public access off). Needs private_network = true; not with allowed_ip_ranges, allowed_subnet_ids or continuous_deployment."
+  type        = bool
+  default     = false
+}
+
+variable "app_private_dns_zone_id" {
+  description = "Existing privatelink.azurewebsites.net private DNS zone (e.g. in a hub). Blank = create one and link it to the VNet."
   type        = string
   default     = ""
 }

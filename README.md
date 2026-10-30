@@ -172,6 +172,32 @@ private endpoints; they still need a role to read anything.
 Terraform creates the containers through the storage data plane, so run it from a network that can reach the
 private endpoint, or apply once with `private_network = false` first so the containers exist.
 
+### The web app behind a private endpoint
+
+```hcl
+private_network      = true
+app_private_endpoint = true
+```
+
+The web app (and its scm site) gets an inbound private endpoint in the private endpoint subnet and its public
+network access is turned off: `https://<name>.azurewebsites.net` then answers only on the endpoint's private IP
+(`private_network.app_private_ip` output). Users need a network path to the VNet (VPN, ExpressRoute or a peered
+VNet) and DNS that resolves `privatelink.azurewebsites.net`: the zone is created and linked to the VNet, or set
+`app_private_dns_zone_id` to a hub zone; on-premises DNS must forward `azurewebsites.net` to Azure DNS (for example
+through a Private DNS Resolver). Sign-in still works: the redirect goes through the user's browser, which is on that
+network. It works with either `private_access`; with `"service_endpoint"` and an existing VNet set
+`private_endpoint_subnet_id` too. `allowed_ip_ranges`, `allowed_subnet_ids` and `continuous_deployment` are refused
+with it (the public address they act on is off). Basic plans or higher support it.
+
+`allowed_subnet_ids` is a different thing: it keeps the public address and lets in traffic from subnets with the
+`Microsoft.Web` service endpoint turned on; it creates no private endpoint.
+
+**Subnet sizes.** The integration subnet needs one address per app instance, and twice that for a short while
+during a scale operation or platform upgrade; Azure keeps 5 addresses in every subnet. A /28 (11 usable) is
+enough for this app on one or a few instances; Microsoft recommends /26 when a plan may scale out a lot or the
+subnet is shared by several plans. The private endpoint subnet needs one address per endpoint (up to three
+here), so a /28 is plenty there too.
+
 ## Load alarms
 
 ```hcl
@@ -275,7 +301,7 @@ provider "azurerm" {
 }
 
 module "dashboard" {
-  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.5.4"
+  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.6.0"
 
   name     = "contoso-azure-tools"
   location = "norwayeast"
@@ -370,6 +396,8 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_alert_memory_pct"></a> [alert\_memory\_pct](#input\_alert\_memory\_pct) | Alarm when the plan's average memory stays above this percentage for 15 minutes. | `number` | `85` | no |
 | <a name="input_allowed_ip_ranges"></a> [allowed\_ip\_ranges](#input\_allowed\_ip\_ranges) | Public IPs or CIDR ranges that may reach the web app ("Enabled from selected virtual networks and IP<br/>addresses"), e.g. ["203.0.113.10", "198.51.100.0/24"]. A bare address means that one address. Empty, together<br/>with an empty allowed\_subnet\_ids, = open to the internet (sign-in still required). | `list(string)` | `[]` | no |
 | <a name="input_allowed_subnet_ids"></a> [allowed\_subnet\_ids](#input\_allowed\_subnet\_ids) | Subnet resource IDs whose traffic may reach the web app (the subnet needs the Microsoft.Web service endpoint). Used together with allowed\_ip\_ranges. | `list(string)` | `[]` | no |
+| <a name="input_app_private_dns_zone_id"></a> [app\_private\_dns\_zone\_id](#input\_app\_private\_dns\_zone\_id) | Existing privatelink.azurewebsites.net private DNS zone (e.g. in a hub), already linked to the VNets that must resolve the app. Blank = create one and link it to the VNet. | `string` | `""` | no |
+| <a name="input_app_private_endpoint"></a> [app\_private\_endpoint](#input\_app\_private\_endpoint) | Give the web app itself an inbound private endpoint in the VNet and turn its public network access off (also<br/>for the scm site). Needs private\_network = true. People then need a network path to the VNet (VPN, ExpressRoute,<br/>peering) and DNS that resolves privatelink.azurewebsites.net (the zone is created and linked to the VNet unless<br/>app\_private\_dns\_zone\_id is set). Not together with allowed\_ip\_ranges, allowed\_subnet\_ids or continuous\_deployment. | `bool` | `false` | no |
 | <a name="input_area_roles"></a> [area\_roles](#input\_area\_roles) | Area roles over every tenant, keyed by area: identity, platform, security or cost. Each listed area creates<br/>the app role `<Area>.Read` (see, run and accept findings of that area's scans), for example Security.Read;<br/>read\_members get it (object IDs, as group members with create\_role\_groups). run\_members is deprecated: there<br/>are no Run roles any more (whoever may see a scan may run it) and its members join read\_members. Per-customer area roles are in customers.area\_roles. Which scans each area holds is in the<br/>dashboard's docs/guides/sign-in-and-roles.md. | <pre>map(object({<br/>    read_members = optional(list(string), [])<br/>    run_members  = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_blob_private_dns_zone_id"></a> [blob\_private\_dns\_zone\_id](#input\_blob\_private\_dns\_zone\_id) | Existing privatelink.blob.core.windows.net private DNS zone (e.g. in a hub), already linked to the VNet. Blank = create one and link it to the VNet. | `string` | `""` | no |
 | <a name="input_continuous_deployment"></a> [continuous\_deployment](#input\_continuous\_deployment) | Let the app pull a new image when Docker Hub's tag moves: turns on App Service continuous deployment (DOCKER\_ENABLE\_CI) and the deploy webhook (output deploy\_webhook\_url), which needs basic authentication on the Kudu (scm) site. false = the app pulls only on restart or image change. | `bool` | `false` | no |
@@ -386,7 +414,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_image"></a> [image](#input\_image) | Docker Hub image and tag. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app. | `string` | `"trozity/azure-ops-dashboard:stable"` | no |
 | <a name="input_location"></a> [location](#input\_location) | Azure region. | `string` | `"norwayeast"` | no |
 | <a name="input_private_access"></a> [private\_access](#input\_private\_access) | How the web app reaches the history storage account and the secret vault when private\_network = true.<br/>"private\_endpoint": private endpoints and private DNS zones, public network access off.<br/>"service\_endpoint": no private endpoints or DNS zones; the integration subnet gets the Microsoft.Storage and<br/>Microsoft.KeyVault service endpoints and both firewalls let in that subnet only (an existing subnet needs both<br/>service endpoints turned on first). Cheaper and simpler; the storage account must be in the VNet's region or<br/>its paired region. | `string` | `"private_endpoint"` | no |
-| <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | Existing subnet for the private endpoints (storage, secret vault). Set together with vnet\_integration\_subnet\_id; not used with private\_access = "service\_endpoint". | `string` | `""` | no |
+| <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | Existing subnet for the private endpoints (storage, secret vault, and the web app with app\_private\_endpoint). Set together with vnet\_integration\_subnet\_id; with private\_access = "service\_endpoint" only needed for app\_private\_endpoint. | `string` | `""` | no |
 | <a name="input_private_network"></a> [private\_network](#input\_private\_network) | Join the web app to a virtual network (VNet integration) and reach the history storage account and the secret<br/>vault through private endpoints, with their public network access turned off. Without existing subnets a small<br/>VNet is created (vnet\_address\_space). Costs a little extra (private endpoint and DNS zone). | `bool` | `false` | no |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group to create. Blank = `rg-<name>`. | `string` | `""` | no |
 | <a name="input_role_group_prefix"></a> [role\_group\_prefix](#input\_role\_group\_prefix) | Display name prefix of the role groups. Blank = `Cirrus Watch (<name>)`. | `string` | `""` | no |
@@ -415,7 +443,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="output_deploy_webhook_url"></a> [deploy\_webhook\_url](#output\_deploy\_webhook\_url) | With continuous\_deployment: the URL that makes the app pull its image again. Holds the publishing password; put it in the dashboard repo's STABLE\_DEPLOY\_WEBHOOKS secret (one URL per line) so Promote to stable updates this app. null otherwise. |
 | <a name="output_graph_request"></a> [graph\_request](#output\_graph\_request) | What to ask an Entra admin for when grant\_graph\_permissions = false: the scan identity's Graph application permissions. |
 | <a name="output_history_storage_url"></a> [history\_storage\_url](#output\_history\_storage\_url) | Blob endpoint of the history storage account (null when create\_history\_storage = false). |
-| <a name="output_private_network"></a> [private\_network](#output\_private\_network) | VNet integration subnet, how storage and the vault are reached, and their private endpoints (null when private\_network = false). |
+| <a name="output_private_network"></a> [private\_network](#output\_private\_network) | VNet integration subnet, how storage and the vault are reached, their private endpoints and the web app's own private endpoint (null when private\_network = false). |
 | <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | Resource group the dashboard lives in. |
 | <a name="output_role_groups"></a> [role\_groups](#output\_role\_groups) | Entra security group per dashboard role (role => group object ID). Add people to these groups; one person can be in several customers' groups. |
 | <a name="output_secret_vault_uri"></a> [secret\_vault\_uri](#output\_secret\_vault\_uri) | Address of the key vault holding the secrets entered in Settings (null when create\_secret\_vault = false). |

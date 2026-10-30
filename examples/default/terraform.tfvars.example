@@ -137,6 +137,10 @@ user_principal_ids  = []
 # vault_private_dns_zone_id = "/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.Network/privateDnsZones/privatelink.vaultcore.azure.net"
 # All outbound traffic through the VNet (needs a NAT gateway or firewall there).
 # vnet_route_all = false
+# The web app itself only through a private endpoint (public access off; needs
+# a VPN or peering to the VNet and DNS for privatelink.azurewebsites.net).
+# app_private_endpoint    = true
+# app_private_dns_zone_id = "/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.Network/privateDnsZones/privatelink.azurewebsites.net"
 
 # --- App settings ---
 

@@ -51,6 +51,9 @@ resource "azurerm_linux_web_app" "this" {
   https_only          = true
   tags                = var.tags
 
+  # app_private_endpoint: only the private endpoint reaches the app and its scm site.
+  public_network_access_enabled = !local.app_private
+
   # The deploy webhook signs in to the Kudu site with the publishing
   # credentials; without continuous deployment they stay off.
   webdeploy_publish_basic_authentication_enabled = var.continuous_deployment
@@ -141,6 +144,21 @@ resource "azurerm_linux_web_app" "this" {
         retention_in_days = 7
         retention_in_mb   = 35
       }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !var.app_private_endpoint || var.private_network
+      error_message = "app_private_endpoint needs private_network = true (the endpoint sits in that VNet)."
+    }
+    precondition {
+      condition     = !local.app_private || length(var.allowed_ip_ranges) + length(var.allowed_subnet_ids) == 0
+      error_message = "With app_private_endpoint the public address is off, so allowed_ip_ranges and allowed_subnet_ids would do nothing: leave them empty."
+    }
+    precondition {
+      condition     = !local.app_private || !var.continuous_deployment
+      error_message = "With app_private_endpoint the deploy webhook (called from the internet) cannot reach the scm site: set continuous_deployment = false."
     }
   }
 }

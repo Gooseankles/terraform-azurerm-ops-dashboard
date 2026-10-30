@@ -23,6 +23,19 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-30
+
+### Added
+
+- `app_private_endpoint`: the web app itself gets an inbound private endpoint (subresource `sites`) in the private
+  endpoint subnet, and its public network access is turned off for the site and the scm site. A
+  `privatelink.azurewebsites.net` zone is created and linked to the VNet, or `app_private_dns_zone_id` points at an
+  existing one. Needs `private_network = true`; refused together with `allowed_ip_ranges`, `allowed_subnet_ids` or
+  `continuous_deployment`. Works with both `private_access` values (the private endpoint subnet is now also created
+  for `"service_endpoint"` when this is on).
+- `private_network` output: `app_endpoint_id`, `app_private_ip` and `app_public_access`.
+- README: what `allowed_subnet_ids` does and does not do, and subnet sizes (/28 is enough for this app).
+
 ## [1.5.4] - 2026-10-29
 
 ### Fixed
@@ -132,7 +145,8 @@ Read this before you raise `?ref=`.
 - The module at the repo root, split from the app repo, with a root configuration in `examples/default` and
   `docs/permissions.md`.
 
-[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.4...HEAD
+[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.4...v1.6.0
 [1.5.4]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.3...v1.5.4
 [1.5.3]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.1...v1.5.2

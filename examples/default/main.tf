@@ -1,6 +1,6 @@
 # Deploys the dashboard with the module at the root of this repo. To use the
 # module from another configuration instead:
-#   source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.5.4"
+#   source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.6.0"
 module "dashboard" {
   source = "../.."
 
@@ -54,6 +54,8 @@ module "dashboard" {
   private_endpoint_subnet_id = var.private_endpoint_subnet_id
   blob_private_dns_zone_id   = var.blob_private_dns_zone_id
   vault_private_dns_zone_id  = var.vault_private_dns_zone_id
+  app_private_endpoint       = var.app_private_endpoint
+  app_private_dns_zone_id    = var.app_private_dns_zone_id
   vnet_route_all             = var.vnet_route_all
 
   tags = var.tags

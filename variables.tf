@@ -374,7 +374,7 @@ variable "vnet_integration_subnet_id" {
 }
 
 variable "private_endpoint_subnet_id" {
-  description = "Existing subnet for the private endpoints (storage, secret vault). Set together with vnet_integration_subnet_id; not used with private_access = \"service_endpoint\"."
+  description = "Existing subnet for the private endpoints (storage, secret vault, and the web app with app_private_endpoint). Set together with vnet_integration_subnet_id; with private_access = \"service_endpoint\" only needed for app_private_endpoint."
   type        = string
   default     = ""
 }
@@ -387,6 +387,23 @@ variable "blob_private_dns_zone_id" {
 
 variable "vault_private_dns_zone_id" {
   description = "Existing privatelink.vaultcore.azure.net private DNS zone (e.g. in a hub), already linked to the VNet. Blank = create one and link it to the VNet."
+  type        = string
+  default     = ""
+}
+
+variable "app_private_endpoint" {
+  description = <<-EOT
+    Give the web app itself an inbound private endpoint in the VNet and turn its public network access off (also
+    for the scm site). Needs private_network = true. People then need a network path to the VNet (VPN, ExpressRoute,
+    peering) and DNS that resolves privatelink.azurewebsites.net (the zone is created and linked to the VNet unless
+    app_private_dns_zone_id is set). Not together with allowed_ip_ranges, allowed_subnet_ids or continuous_deployment.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "app_private_dns_zone_id" {
+  description = "Existing privatelink.azurewebsites.net private DNS zone (e.g. in a hub), already linked to the VNets that must resolve the app. Blank = create one and link it to the VNet."
   type        = string
   default     = ""
 }
