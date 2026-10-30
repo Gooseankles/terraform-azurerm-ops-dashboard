@@ -180,15 +180,16 @@ private_network      = true
 app_private_endpoint = true
 ```
 
-The web app (and its scm site) gets an inbound private endpoint in the private endpoint subnet and its public
-network access is turned off: `https://<name>.azurewebsites.net` then answers only on the endpoint's private IP
-(`private_network.app_private_ip` output). Users need a network path to the VNet (VPN, ExpressRoute or a peered
+The web app gets an inbound private endpoint in the private endpoint subnet. Its public network access stays on,
+but the access restrictions deny every network (default action Deny), so `https://<name>.azurewebsites.net` answers
+only on the endpoint's private IP (`private_network.app_private_ip` output) and from any `allowed_ip_ranges` or
+`allowed_subnet_ids`. The Kudu (scm) site follows the same rules, unless `continuous_deployment` is on: then it stays
+open so the deploy webhook gets through (it still needs the publishing credentials). Users need a network path to the VNet (VPN, ExpressRoute or a peered
 VNet) and DNS that resolves `privatelink.azurewebsites.net`: the zone is created and linked to the VNet, or set
 `app_private_dns_zone_id` to a hub zone; on-premises DNS must forward `azurewebsites.net` to Azure DNS (for example
 through a Private DNS Resolver). Sign-in still works: the redirect goes through the user's browser, which is on that
 network. It works with either `private_access`; with `"service_endpoint"` and an existing VNet set
-`private_endpoint_subnet_id` too. `allowed_ip_ranges`, `allowed_subnet_ids` and `continuous_deployment` are refused
-with it (the public address they act on is off). Basic plans or higher support it.
+`private_endpoint_subnet_id` too. Basic plans or higher support it.
 
 `allowed_subnet_ids` is a different thing: it keeps the public address and lets in traffic from subnets with the
 `Microsoft.Web` service endpoint turned on; it creates no private endpoint.
@@ -302,7 +303,7 @@ provider "azurerm" {
 }
 
 module "dashboard" {
-  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.6.1"
+  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.7.0"
 
   name     = "contoso-azure-tools"
   location = "norwayeast"
@@ -334,8 +335,9 @@ of at the next restart. To have **Promote to stable** in the dashboard repo do t
    apps). The URL holds the site's publishing password: treat it as a secret.
 
 It turns on basic authentication for the Kudu (scm) site, which the webhook needs (FTP stays off). With
-`allowed_ip_ranges` or `allowed_subnet_ids` set, the scm site follows the same rules, so GitHub's runners are refused;
-then call the webhook from an allowed address, or leave it off and restart the app after promoting.
+`allowed_ip_ranges`, `allowed_subnet_ids` or `app_private_endpoint` set, the site itself stays restricted but the scm
+site stays open, so GitHub's runners can call the webhook; it still needs the publishing password in the URL. Leave
+`continuous_deployment` off to keep the scm site behind the same rules, and restart the app after promoting.
 
 ## Policy check
 
@@ -398,7 +400,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_allowed_ip_ranges"></a> [allowed\_ip\_ranges](#input\_allowed\_ip\_ranges) | Public IPs or CIDR ranges that may reach the web app ("Enabled from selected virtual networks and IP<br/>addresses"), e.g. ["203.0.113.10", "198.51.100.0/24"]. A bare address means that one address. Empty, together<br/>with an empty allowed\_subnet\_ids, = open to the internet (sign-in still required). | `list(string)` | `[]` | no |
 | <a name="input_allowed_subnet_ids"></a> [allowed\_subnet\_ids](#input\_allowed\_subnet\_ids) | Subnet resource IDs whose traffic may reach the web app (the subnet needs the Microsoft.Web service endpoint). Used together with allowed\_ip\_ranges. | `list(string)` | `[]` | no |
 | <a name="input_app_private_dns_zone_id"></a> [app\_private\_dns\_zone\_id](#input\_app\_private\_dns\_zone\_id) | Existing privatelink.azurewebsites.net private DNS zone (e.g. in a hub), already linked to the VNets that must resolve the app. Blank = create one and link it to the VNet. | `string` | `""` | no |
-| <a name="input_app_private_endpoint"></a> [app\_private\_endpoint](#input\_app\_private\_endpoint) | Give the web app itself an inbound private endpoint in the VNet and turn its public network access off (also<br/>for the scm site). Needs private\_network = true. People then need a network path to the VNet (VPN, ExpressRoute,<br/>peering) and DNS that resolves privatelink.azurewebsites.net (the zone is created and linked to the VNet unless<br/>app\_private\_dns\_zone\_id is set). Not together with allowed\_ip\_ranges, allowed\_subnet\_ids or continuous\_deployment. | `bool` | `false` | no |
+| <a name="input_app_private_endpoint"></a> [app\_private\_endpoint](#input\_app\_private\_endpoint) | Give the web app itself an inbound private endpoint in the VNet. Public network access stays on, but the access<br/>restrictions deny every network except allowed\_ip\_ranges and allowed\_subnet\_ids (the scm site too, unless<br/>continuous\_deployment keeps it open for the deploy webhook). Needs private\_network = true. People then need a<br/>network path to the VNet (VPN, ExpressRoute, peering) and DNS that resolves privatelink.azurewebsites.net (the<br/>zone is created and linked to the VNet unless app\_private\_dns\_zone\_id is set). | `bool` | `false` | no |
 | <a name="input_area_roles"></a> [area\_roles](#input\_area\_roles) | Area roles over every tenant, keyed by area: identity, platform, security or cost. Each listed area creates<br/>the app role `<Area>.Read` (see, run and accept findings of that area's scans), for example Security.Read;<br/>read\_members get it (object IDs, as group members with create\_role\_groups). run\_members is deprecated: there<br/>are no Run roles any more (whoever may see a scan may run it) and its members join read\_members. Per-customer area roles are in customers.area\_roles. Which scans each area holds is in the<br/>dashboard's docs/guides/sign-in-and-roles.md. | <pre>map(object({<br/>    read_members = optional(list(string), [])<br/>    run_members  = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_blob_private_dns_zone_id"></a> [blob\_private\_dns\_zone\_id](#input\_blob\_private\_dns\_zone\_id) | Existing privatelink.blob.core.windows.net private DNS zone (e.g. in a hub), already linked to the VNet. Blank = create one and link it to the VNet. | `string` | `""` | no |
 | <a name="input_continuous_deployment"></a> [continuous\_deployment](#input\_continuous\_deployment) | Let the app pull a new image when Docker Hub's tag moves: turns on App Service continuous deployment (DOCKER\_ENABLE\_CI) and the deploy webhook (output deploy\_webhook\_url), which needs basic authentication on the Kudu (scm) site. false = the app pulls only on restart or image change. | `bool` | `false` | no |

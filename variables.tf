@@ -395,10 +395,11 @@ variable "vault_private_dns_zone_id" {
 
 variable "app_private_endpoint" {
   description = <<-EOT
-    Give the web app itself an inbound private endpoint in the VNet and turn its public network access off (also
-    for the scm site). Needs private_network = true. People then need a network path to the VNet (VPN, ExpressRoute,
-    peering) and DNS that resolves privatelink.azurewebsites.net (the zone is created and linked to the VNet unless
-    app_private_dns_zone_id is set). Not together with allowed_ip_ranges, allowed_subnet_ids or continuous_deployment.
+    Give the web app itself an inbound private endpoint in the VNet. Public network access stays on, but the access
+    restrictions deny every network except allowed_ip_ranges and allowed_subnet_ids (the scm site too, unless
+    continuous_deployment keeps it open for the deploy webhook). Needs private_network = true. People then need a
+    network path to the VNet (VPN, ExpressRoute, peering) and DNS that resolves privatelink.azurewebsites.net (the
+    zone is created and linked to the VNet unless app_private_dns_zone_id is set).
   EOT
   type        = bool
   default     = false

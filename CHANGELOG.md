@@ -23,6 +23,19 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-30
+
+### Changed
+
+- `app_private_endpoint` keeps the web app's public network access on instead of turning it off. The access
+  restrictions deny every network (default action Deny), so the private endpoint is still the way in. This stops
+  deployments from being blocked.
+- `allowed_ip_ranges` and `allowed_subnet_ids` now work together with `app_private_endpoint`, as extra ways in.
+- With `continuous_deployment` the Kudu (scm) site stays open (it still needs the publishing credentials), so the
+  deploy webhook gets through even when the site is restricted by allowed IPs, subnets or `app_private_endpoint`.
+  It used to follow the site's rules, which refused GitHub's runners. `continuous_deployment` is no longer refused
+  with `app_private_endpoint`.
+
 ## [1.6.1] - 2026-10-30
 
 ### Changed

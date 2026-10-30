@@ -396,7 +396,7 @@ variable "vault_private_dns_zone_id" {
 }
 
 variable "app_private_endpoint" {
-  description = "Reach the web app only through a private endpoint in the VNet (public access off). Needs private_network = true; not with allowed_ip_ranges, allowed_subnet_ids or continuous_deployment."
+  description = "Give the web app a private endpoint in the VNet; public access stays on but every network is denied except allowed_ip_ranges and allowed_subnet_ids. Needs private_network = true."
   type        = bool
   default     = false
 }
