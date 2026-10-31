@@ -9,6 +9,9 @@ each is a git tag `v<major>.<minor>.<patch>` to pin with `?ref=`. The app has it
 
 Read this before you raise `?ref=`.
 
+- **v1.10.0: needs app image 0.61.0.0 or newer.** Older images answer `/health` with the sign-in page, so the
+  health check and its alert would report the app as unhealthy. With a pinned `image` tag, raise it first.
+
 - **v1.9.0: `private_access` defaults to `"service_endpoint"`.** A deployment with `private_network = true` that
   never set `private_access` loses its storage and vault private endpoints and private DNS zones on the next apply,
   and the integration subnet gets the service endpoints instead. To keep the private endpoints, set
@@ -28,6 +31,16 @@ Read this before you raise `?ref=`.
   its resources through the `moved` blocks in `examples/default`.
 
 ## [Unreleased]
+
+## [1.10.0] - 2026-10-31
+
+### Added
+
+- The web app uses the app's `GET /health` as its App Service health check (`health_check_path = "/health"`,
+  eviction after 10 minutes).
+- `alert-<name>-health`: a metric alert (severity 1) on `HealthCheckStatus` below 100 for 15 minutes, made with the
+  other alerts when `alert_emails` is set. It fires when no scheduled scan has finished for 26 hours or the app is
+  down.
 
 ## [1.9.0] - 2026-10-30
 
@@ -196,7 +209,8 @@ Read this before you raise `?ref=`.
 - The module at the repo root, split from the app repo, with a root configuration in `examples/default` and
   `docs/permissions.md`.
 
-[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.6.1...v1.7.0

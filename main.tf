@@ -80,6 +80,11 @@ resource "azurerm_linux_web_app" "this" {
     minimum_tls_version = "1.2"
     http2_enabled       = true
 
+    # The app's GET /health (app 0.61.0.0 or newer): 503 when no scheduled scan has finished for 26 hours. With
+    # one instance App Service keeps it in service (it may replace it after an hour); the health alert emails.
+    health_check_path                 = "/health"
+    health_check_eviction_time_in_min = 10
+
     # All outbound traffic through the VNet (needs a NAT gateway or firewall
     # there to reach Docker Hub and Azure); off = only private addresses.
     vnet_route_all_enabled = var.private_network && var.vnet_route_all

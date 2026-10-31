@@ -70,6 +70,30 @@ resource "azurerm_monitor_metric_alert" "memory" {
   }
 }
 
+resource "azurerm_monitor_metric_alert" "health" {
+  count               = local.alerts ? 1 : 0
+  name                = "alert-${var.name}-health"
+  resource_group_name = azurerm_resource_group.this.name
+  scopes              = [azurerm_linux_web_app.this.id]
+  description         = "The dashboard's health check (/health) failed for 15 minutes: no scheduled scan has finished for 26 hours, or the app is down. Check Recent activity in the dashboard for scan errors."
+  severity            = 1
+  frequency           = "PT5M"
+  window_size         = "PT15M"
+  tags                = var.tags
+
+  criteria {
+    metric_namespace = "Microsoft.Web/sites"
+    metric_name      = "HealthCheckStatus"
+    aggregation      = "Average"
+    operator         = "LessThan"
+    threshold        = 100
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.alerts[0].id
+  }
+}
+
 resource "azurerm_monitor_metric_alert" "errors" {
   count               = local.alerts ? 1 : 0
   name                = "alert-${var.name}-5xx"

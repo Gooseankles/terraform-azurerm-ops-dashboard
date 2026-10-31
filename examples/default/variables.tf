@@ -130,7 +130,7 @@ variable "history_retention_days" {
 }
 
 variable "alert_emails" {
-  description = "Email addresses for alarms on the dashboard's own App Service (CPU, memory, server errors), sent by Azure Monitor. Empty = no alerts are created. Each alert rule costs about 0.10 USD a month."
+  description = "Email addresses for alarms on the dashboard's own App Service (CPU, memory, server errors, health check), sent by Azure Monitor. Empty = no alerts are created. Each alert rule costs about 0.10 USD a month."
   type        = list(string)
   default     = []
 }

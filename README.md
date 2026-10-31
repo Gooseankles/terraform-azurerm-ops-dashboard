@@ -220,17 +220,25 @@ then work. The deploy webhook calls the scm site from the internet, so leave `co
 `allowed_ip_ranges` / `allowed_subnet_ids` are refused with the web app's public access off). Resources reached
 through service endpoints keep public access on, as they need it.
 
-## Load alarms
+## Load alarms and health check
 
 ```hcl
 alert_emails = ["ops@contoso.com"]
 ```
 
 Azure Monitor emails these addresses when the App Service plan's average CPU (`alert_cpu_pct`, default 85) or
-memory (`alert_memory_pct`, default 85) stays above the limit for 15 minutes, or when the app answers with more than
-`alert_5xx_count` (10) server errors in 15 minutes. These come from Azure, so they also arrive when the dashboard
-itself is down. Three alert rules and an action group, about 0.30 USD a month; nothing is created while the list is
-empty. Which scans caused the load is on the dashboard's Server load page (Admin).
+memory (`alert_memory_pct`, default 85) stays above the limit for 15 minutes, when the app answers with more than
+`alert_5xx_count` (10) server errors in 15 minutes, or when its health check stays below 100% for 15 minutes. These
+come from Azure, so they also arrive when the dashboard itself is down. Four alert rules and an action group, about
+0.40 USD a month; nothing is created while the list is empty. Which scans caused the load is on the dashboard's
+Server load page (Admin).
+
+The web app's health check always points at the app's `GET /health` (no sign-in; it says only `ok` or `stale`). It
+fails when no scheduled scan has finished for 26 hours (`HEALTH_SCAN_MAX_AGE_HOURS` in `extra_app_settings`), never
+in the first 26 hours after a start. With one instance App Service keeps the app in service; it may replace (restart)
+an instance that stays unhealthy for an hour. `health_check_eviction_time_in_min` is 10, which only matters with more
+instances. **Needs app image 0.61.0.0 or newer**: an older app answers `/health` with the sign-in page, which counts
+as failed.
 
 ## Who can run it
 
@@ -323,7 +331,7 @@ provider "azurerm" {
 }
 
 module "dashboard" {
-  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.9.0"
+  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.10.0"
 
   name     = "contoso-azure-tools"
   location = "norwayeast"
@@ -415,7 +423,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_admin_principal_ids"></a> [admin\_principal\_ids](#input\_admin\_principal\_ids) | Object IDs of users or groups that get the Admin role on the dashboard (only with create\_sso\_app = true; otherwise the app team assigns them). | `list(string)` | `[]` | no |
 | <a name="input_alert_5xx_count"></a> [alert\_5xx\_count](#input\_alert\_5xx\_count) | Alarm when the app answers with more server errors (5xx) than this in 15 minutes. | `number` | `10` | no |
 | <a name="input_alert_cpu_pct"></a> [alert\_cpu\_pct](#input\_alert\_cpu\_pct) | Alarm when the plan's average CPU stays above this percentage for 15 minutes. | `number` | `85` | no |
-| <a name="input_alert_emails"></a> [alert\_emails](#input\_alert\_emails) | Email addresses for alarms on the dashboard's own App Service (CPU, memory, server errors), sent by Azure Monitor. Empty = no alerts are created. Each alert rule costs about 0.10 USD a month. | `list(string)` | `[]` | no |
+| <a name="input_alert_emails"></a> [alert\_emails](#input\_alert\_emails) | Email addresses for alarms on the dashboard's own App Service (CPU, memory, server errors, health check), sent by Azure Monitor. Empty = no alerts are created. Each alert rule costs about 0.10 USD a month. | `list(string)` | `[]` | no |
 | <a name="input_alert_memory_pct"></a> [alert\_memory\_pct](#input\_alert\_memory\_pct) | Alarm when the plan's average memory stays above this percentage for 15 minutes. | `number` | `85` | no |
 | <a name="input_allowed_ip_ranges"></a> [allowed\_ip\_ranges](#input\_allowed\_ip\_ranges) | Public IPs or CIDR ranges that may reach the web app ("Enabled from selected virtual networks and IP<br/>addresses"), e.g. ["203.0.113.10", "198.51.100.0/24"]. A bare address means that one address. Empty, together<br/>with an empty allowed\_subnet\_ids, = open to the internet (sign-in still required). | `list(string)` | `[]` | no |
 | <a name="input_allowed_subnet_ids"></a> [allowed\_subnet\_ids](#input\_allowed\_subnet\_ids) | Subnet resource IDs whose traffic may reach the web app (the subnet needs the Microsoft.Web service endpoint). Used together with allowed\_ip\_ranges. | `list(string)` | `[]` | no |

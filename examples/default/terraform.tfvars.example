@@ -103,7 +103,7 @@ user_principal_ids  = []
 
 # Email alarms on the dashboard's own App Service (Azure Monitor): average CPU
 # or memory of the plan above the limit for 15 minutes, or server errors.
-# Empty = none. About 0.10 USD a month per alert rule (three rules).
+# Empty = none. About 0.10 USD a month per alert rule (four rules: CPU, memory, server errors, health check).
 # alert_emails     = ["ops@contoso.com"]
 # alert_cpu_pct    = 85
 # alert_memory_pct = 85
