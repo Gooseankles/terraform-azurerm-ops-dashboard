@@ -178,8 +178,23 @@ data "azuread_service_principal" "msgraph" {
   client_id = "00000003-0000-0000-c000-000000000000"
 }
 
+locals {
+  # Opt-in checks and the extra Graph application permission each needs. Keep
+  # in step with EXTRA_CHECKS in the app's src/tools/extraChecks.js.
+  extra_graph_permission_map = {
+    "risky-users"    = ["IdentityRiskyUser.Read.All"]
+    "secure-score"   = ["SecurityEvents.Read.All"]
+    "admin-units"    = ["AdministrativeUnit.Read.All"]
+    "directory-sync" = ["Organization.Read.All"]
+  }
+  extra_graph_permissions = distinct(flatten([for c in var.extra_graph_checks : local.extra_graph_permission_map[c]]))
+  # What the home tenant's scan identity is granted: the default set plus the
+  # opt-in checks' permissions (nothing extra while extra_graph_checks is empty).
+  all_graph_permissions = distinct(concat(var.graph_permissions, local.extra_graph_permissions))
+}
+
 resource "azuread_app_role_assignment" "graph" {
-  for_each            = var.grant_graph_permissions ? toset(var.graph_permissions) : toset([])
+  for_each            = var.grant_graph_permissions ? toset(local.all_graph_permissions) : toset([])
   app_role_id         = data.azuread_service_principal.msgraph[0].app_role_ids[each.value]
   principal_object_id = azurerm_linux_web_app.this.identity[0].principal_id
   resource_object_id  = data.azuread_service_principal.msgraph[0].object_id

@@ -58,9 +58,9 @@ resource "azurerm_linux_web_app" "this" {
   # subnets).
   public_network_access_enabled = !local.app_public_off
 
-  # The deploy webhook signs in to the Kudu site with the publishing
-  # credentials; without continuous deployment they stay off.
-  webdeploy_publish_basic_authentication_enabled = var.continuous_deployment
+  # Publishing credentials (basic authentication) stay off: continuous_deployment restarts the app through Resource
+  # Manager with the deploy identity (deploy.tf), not through the Kudu site.
+  webdeploy_publish_basic_authentication_enabled = false
   ftp_publish_basic_authentication_enabled       = false
 
   # Outbound through the VNet (private_network): reaches the history storage
@@ -91,12 +91,10 @@ resource "azurerm_linux_web_app" "this" {
     vnet_route_all_enabled = var.private_network && var.vnet_route_all
 
     # Access restrictions: with any allowed IP or subnet, or app_private_endpoint, everything else is refused
-    # before it reaches the app. The Kudu (scm) site follows the same rules, except with continuous_deployment:
-    # then it stays open so the deploy webhook (called from the internet) gets through; it still needs the
-    # publishing credentials.
+    # before it reaches the app. The Kudu (scm) site always follows the same rules.
     ip_restriction_default_action     = local.restricted ? "Deny" : "Allow"
-    scm_use_main_ip_restriction       = local.restricted && !var.continuous_deployment
-    scm_ip_restriction_default_action = local.restricted && !var.continuous_deployment ? "Deny" : "Allow"
+    scm_use_main_ip_restriction       = local.restricted
+    scm_ip_restriction_default_action = local.restricted ? "Deny" : "Allow"
 
     dynamic "ip_restriction" {
       for_each = local.allowed_ip_ranges
@@ -146,8 +144,8 @@ resource "azurerm_linux_web_app" "this" {
     } : {},
     local.has_customers ? { DASHBOARD_TENANTS = jsonencode(local.dashboard_tenants) } : {},
     length(var.scan_subscription_ids) > 0 ? { AZURE_SUBSCRIPTION_IDS = join(",", var.scan_subscription_ids) } : {},
+    length(var.extra_graph_checks) > 0 ? { EXTRA_GRAPH_CHECKS = join(",", var.extra_graph_checks) } : {},
     var.admin_password != "" ? { DASHBOARD_ADMIN_PASSWORD = var.admin_password } : {},
-    var.continuous_deployment ? { DOCKER_ENABLE_CI = "true" } : {},
     var.extra_app_settings,
   )
 
@@ -172,10 +170,6 @@ resource "azurerm_linux_web_app" "this" {
     precondition {
       condition     = !local.app_public_off || length(var.allowed_ip_ranges) + length(var.allowed_subnet_ids) == 0
       error_message = "With public_network_access = false and app_private_endpoint the web app has no public address, so allowed_ip_ranges and allowed_subnet_ids would do nothing: leave them empty."
-    }
-    precondition {
-      condition     = !local.app_public_off || !var.continuous_deployment
-      error_message = "With public_network_access = false and app_private_endpoint the deploy webhook (called from the internet) cannot reach the scm site: set continuous_deployment = false."
     }
   }
 }

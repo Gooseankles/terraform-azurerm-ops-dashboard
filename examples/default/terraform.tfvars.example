@@ -90,6 +90,7 @@ user_principal_ids  = []
 #     admin_members    = []    # user object IDs: see and run Acme's scans
 #     user_members     = []    # user object IDs: the same (kept for older setups)
 #     area_roles       = {}    # e.g. { security = {} }: Security.Read-acme
+#     extra_graph_checks = []  # e.g. ["directory-sync"]: its Graph permission joins Acme's onboarding steps
 #   }
 # }
 

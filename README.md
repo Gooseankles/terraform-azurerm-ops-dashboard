@@ -104,6 +104,23 @@ exist.
 A customer's own app cannot trust the dashboard's managed identity instead of a secret: Entra refuses a managed
 identity of another tenant in a federated credential (AADSTS700236).
 
+### Extra Graph checks (opt-in)
+
+Some dashboard checks need Graph application permissions beyond the default set. They stay off, and nothing extra is
+granted, until you list them in `extra_graph_checks`:
+
+```hcl
+extra_graph_checks = ["directory-sync", "secure-score"] # also: "admin-units", "risky-users"
+```
+
+Each one listed gets its permission (`risky-users`: `IdentityRiskyUser.Read.All`, needs Entra ID P2;
+`secure-score`: `SecurityEvents.Read.All`; `admin-units`: `AdministrativeUnit.Read.All`; `directory-sync`:
+`Organization.Read.All`) and is turned on in the home tenant (app setting `EXTRA_GRAPH_CHECKS`). With
+`grant_graph_permissions = false` they are in the `graph_request` output instead. For a customer, set
+`customers.<key>.extra_graph_checks`: it only adds the permissions to that customer's `customer_onboarding` steps,
+and the customer turns the checks on in Settings on their tab. A customer that sets nothing is never asked for more
+([permissions](docs/permissions.md#shared-spn-home-tenant)).
+
 **Upgrading from 0.11.0.x / 0.11.1.0:** the shared multi-tenant scan app (0.11.0.0) and the managed identity
 `id-<name>-customers` (0.11.0.1) are gone; the next apply deletes them. Federated credentials added to customer
 apps for that identity can be deleted; give each app a client secret instead.
@@ -190,8 +207,7 @@ app_private_endpoint = true
 The web app gets an inbound private endpoint in the private endpoint subnet. Its public network access stays on,
 but the access restrictions deny every network (default action Deny), so `https://<name>.azurewebsites.net` answers
 only on the endpoint's private IP (`private_network.app_private_ip` output) and from any `allowed_ip_ranges` or
-`allowed_subnet_ids`. The Kudu (scm) site follows the same rules, unless `continuous_deployment` is on: then it stays
-open so the deploy webhook gets through (it still needs the publishing credentials). Users need a network path to the VNet (VPN, ExpressRoute or a peered
+`allowed_subnet_ids`. The Kudu (scm) site always follows the same rules. Users need a network path to the VNet (VPN, ExpressRoute or a peered
 VNet) and DNS that resolves `privatelink.azurewebsites.net`: the zone is created and linked to the VNet, or set
 `app_private_dns_zone_id` to a hub zone; on-premises DNS must forward `azurewebsites.net` to Azure DNS (for example
 through a Private DNS Resolver). Sign-in still works: the redirect goes through the user's browser, which is on that
@@ -219,8 +235,8 @@ By default the storage account, the secret vault and the web app keep public net
 their firewalls and access restrictions, so deployments and Terraform runs from outside the VNet still work.
 `public_network_access = false` turns it off on every one of them that has a private endpoint: storage and vault
 with `private_access = "private_endpoint"`, the web app with `app_private_endpoint`. Only the private endpoints
-then work. The deploy webhook calls the scm site from the internet, so leave `continuous_deployment` off (it and
-`allowed_ip_ranges` / `allowed_subnet_ids` are refused with the web app's public access off). Resources reached
+then work. `allowed_ip_ranges` and `allowed_subnet_ids` are refused with the web app's public access off.
+`continuous_deployment` still works: it restarts the app through Resource Manager, not through the site. Resources reached
 through service endpoints keep public access on, as they need it.
 
 ## Load alarms and health check
@@ -285,6 +301,8 @@ vault firewalls (`private_network`, `public_network_access = false`) need no cha
   "Grant admin consent" under Enterprise applications → the app → Permissions, or users in tenants that block
   user consent see "Need admin approval".
 - `Network Contributor` (on the subscription, or on the existing VNet) when `private_network = true`.
+- `Owner` or `User Access Administrator` on the dashboard's resource group when `continuous_deployment = true`: it
+  creates the custom role `Cirrus Watch deploy (<name>)` (see [Continuous deployment](#continuous-deployment)).
 - azurerm 5 registers no resource providers by itself. The root provider block registers `Microsoft.Web`,
   `Microsoft.Storage`, `Microsoft.ManagedIdentity` and `Microsoft.KeyVault`, which needs rights on the subscription; if they are already
   registered and you lack those rights, remove `resource_providers_to_register` from `versions.tf`.
@@ -395,19 +413,55 @@ The same command with `--format '{{ json .SBOM }}'` or `--format '{{ json .Prove
 build provenance (app 0.64.1.0 and newer carry an SBOM). A digest never moves, so `continuous_deployment` does
 nothing for it: change `image` to update.
 
+### Check the image signature before you pin it
+
+Images built after 0.64.1.0 are signed with Sigstore cosign, keyless: the signature says the image was built by the
+dashboard repo's `docker.yml` workflow on GitHub, and it is logged in the public Rekor transparency log. App Service
+does not check signatures itself, so check the digest before you put it in `image`
+([cosign](https://docs.sigstore.dev/cosign/system_config/installation/) 3 or newer needed; cosign 2 reports "no
+signatures found"):
+
+```sh
+cosign verify trozity/azure-ops-dashboard@sha256:<digest> \
+  --certificate-identity-regexp '^https://github\.com/Gooseankles/cirrus-watch/\.github/workflows/docker\.yml@refs/(heads/main|tags/v.+)$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+It prints the signature details when it holds and fails otherwise. `:stable` is checked the same way by the
+**Promote to stable** workflow before it moves the tag, so following `:stable` gets a checked image too (0.64.1.0
+and older have no signature and cannot be promoted any more).
+
 ## Continuous deployment
 
-With `continuous_deployment = true` the app pulls its image again as soon as the deploy webhook is called, instead
-of at the next restart. To have **Promote to stable** in the dashboard repo do that:
+With `continuous_deployment = true` the dashboard repo's **Promote to stable** workflow restarts this app right
+after it moves `:stable`, and App Service pulls the image again on every restart, so the new stable runs at once
+instead of at the next restart. No password is involved:
 
-1. `terraform apply`, then `terraform output -raw deploy_webhook_url`.
-2. Put the URL in the dashboard repo's Actions secret `STABLE_DEPLOY_WEBHOOKS` (one URL per line for several
-   apps). The URL holds the site's publishing password: treat it as a secret.
+- The module makes a user-assigned identity `id-<name>-deploy` with a federated credential that trusts GitHub's
+  OIDC token (issuer `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`) for one
+  subject only, `deploy_github_subject`. The default, `repo:Gooseankles/cirrus-watch:environment:stable`, is the
+  workflow's `restart` job, which runs in the GitHub environment `stable`. An environment rather than a branch: the
+  repo owner can limit that environment to `main` and add reviewers, and a pull request run never gets that subject.
+  For a fork, set your own `repo:<owner>/<repo>:environment:stable`.
+- The identity gets one custom role, `Cirrus Watch deploy (<name>)`, on this web app only: read it and restart it
+  (`Microsoft.Web/sites/read`, `Microsoft.Web/sites/restart/action`). The built-in Website Contributor would also let
+  it read the app settings (the session secret, the admin password) and change them. Creating the custom role needs
+  Owner or User Access Administrator on the resource group (Role Based Access Control Administrator can assign roles
+  but not create them).
+- Basic authentication (publishing credentials) stays off and the Kudu (scm) site follows the site's access
+  restrictions, with or without `continuous_deployment`. The restart goes through Resource Manager
+  (`management.azure.com`), so it works with `allowed_ip_ranges`, `app_private_endpoint` and
+  `public_network_access = false` too.
 
-It turns on basic authentication for the Kudu (scm) site, which the webhook needs (FTP stays off). With
-`allowed_ip_ranges`, `allowed_subnet_ids` or `app_private_endpoint` set, the site itself stays restricted but the scm
-site stays open, so GitHub's runners can call the webhook; it still needs the publishing password in the URL. Leave
-`continuous_deployment` off to keep the scm site behind the same rules, and restart the app after promoting.
+To connect the app to the workflow:
+
+1. `terraform apply`, then `terraform output -json stable_deployment` (client ID, tenant ID, subscription ID,
+   resource group and site name; IDs, not secrets).
+2. In the dashboard repo, add it to the Actions variable `STABLE_DEPLOYMENTS`, a JSON list with one entry per app:
+   `[{"clientId":"…","tenantId":"…","subscriptionId":"…","resourceGroup":"rg-contoso-ops","name":"contoso-ops"}]`.
+
+The workflow skips the restart when the variable is empty. Without `continuous_deployment`, restart the app by hand
+after promoting.
 
 ## Policy check
 
@@ -470,16 +524,18 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_allowed_ip_ranges"></a> [allowed\_ip\_ranges](#input\_allowed\_ip\_ranges) | Public IPs or CIDR ranges that may reach the web app ("Enabled from selected virtual networks and IP<br/>addresses"), e.g. ["203.0.113.10", "198.51.100.0/24"]. A bare address means that one address. Empty, together<br/>with an empty allowed\_subnet\_ids, = open to the internet (sign-in still required). | `list(string)` | `[]` | no |
 | <a name="input_allowed_subnet_ids"></a> [allowed\_subnet\_ids](#input\_allowed\_subnet\_ids) | Subnet resource IDs whose traffic may reach the web app (the subnet needs the Microsoft.Web service endpoint). Used together with allowed\_ip\_ranges. | `list(string)` | `[]` | no |
 | <a name="input_app_private_dns_zone_id"></a> [app\_private\_dns\_zone\_id](#input\_app\_private\_dns\_zone\_id) | Existing privatelink.azurewebsites.net private DNS zone (e.g. in a hub), already linked to the VNets that must resolve the app. Blank = create one and link it to the VNet. | `string` | `""` | no |
-| <a name="input_app_private_endpoint"></a> [app\_private\_endpoint](#input\_app\_private\_endpoint) | Give the web app itself an inbound private endpoint in the VNet. Public network access stays on, but the access<br/>restrictions deny every network except allowed\_ip\_ranges and allowed\_subnet\_ids (the scm site too, unless<br/>continuous\_deployment keeps it open for the deploy webhook). Needs private\_network = true. People then need a<br/>network path to the VNet (VPN, ExpressRoute, peering) and DNS that resolves privatelink.azurewebsites.net (the<br/>zone is created and linked to the VNet unless app\_private\_dns\_zone\_id is set). | `bool` | `false` | no |
+| <a name="input_app_private_endpoint"></a> [app\_private\_endpoint](#input\_app\_private\_endpoint) | Give the web app itself an inbound private endpoint in the VNet. Public network access stays on, but the access<br/>restrictions deny every network except allowed\_ip\_ranges and allowed\_subnet\_ids (the scm site too). Needs private\_network = true. People then need a<br/>network path to the VNet (VPN, ExpressRoute, peering) and DNS that resolves privatelink.azurewebsites.net (the<br/>zone is created and linked to the VNet unless app\_private\_dns\_zone\_id is set). | `bool` | `false` | no |
 | <a name="input_area_roles"></a> [area\_roles](#input\_area\_roles) | Area roles over every tenant, keyed by area: identity, platform, security or cost. Each listed area creates<br/>the app role `<Area>.Read` (see, run and accept findings of that area's scans), for example Security.Read;<br/>read\_members get it (object IDs, as group members with create\_role\_groups). run\_members is deprecated: there<br/>are no Run roles any more (whoever may see a scan may run it) and its members join read\_members. Per-customer area roles are in customers.area\_roles. Which scans each area holds is in the<br/>dashboard's docs/guides/sign-in-and-roles.md. | <pre>map(object({<br/>    read_members = optional(list(string), [])<br/>    run_members  = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_blob_private_dns_zone_id"></a> [blob\_private\_dns\_zone\_id](#input\_blob\_private\_dns\_zone\_id) | Existing privatelink.blob.core.windows.net private DNS zone (e.g. in a hub), already linked to the VNet. Blank = create one and link it to the VNet. | `string` | `""` | no |
-| <a name="input_continuous_deployment"></a> [continuous\_deployment](#input\_continuous\_deployment) | Let the app pull a new image when Docker Hub's tag moves: turns on App Service continuous deployment (DOCKER\_ENABLE\_CI) and the deploy webhook (output deploy\_webhook\_url), which needs basic authentication on the Kudu (scm) site. false = the app pulls only on restart or image change. | `bool` | `false` | no |
+| <a name="input_continuous_deployment"></a> [continuous\_deployment](#input\_continuous\_deployment) | Let the dashboard repo's Promote to stable workflow restart this app, so it pulls the new :stable at once: makes a user-assigned identity id-<name>-deploy that trusts GitHub's OIDC token (deploy\_github\_subject) and may only read and restart this web app (output stable\_deployment). No publishing password; basic authentication stays off. false = the app pulls only on restart or image change. | `bool` | `false` | no |
 | <a name="input_create_history_storage"></a> [create\_history\_storage](#input\_create\_history\_storage) | Create a storage account for scan results and run history (reached with the web app's managed identity, no keys). false = keep them on the app's own disk. | `bool` | `true` | no |
 | <a name="input_create_role_groups"></a> [create\_role\_groups](#input\_create\_role\_groups) | Create an Entra security group per dashboard role (Admin, User, `Admin-<key>`, `User-<key>`, area roles) and assign it to that<br/>app role, so people get access by group membership and can be in several customers' groups. admin\_principal\_ids,<br/>user\_principal\_ids and each customer's admin\_members / user\_members become group members. Assigning groups to app<br/>roles needs Microsoft Entra ID P1 or P2, and members must be users (nested groups do not count). false = assign<br/>the people to the roles directly. | `bool` | `true` | no |
 | <a name="input_create_secret_vault"></a> [create\_secret\_vault](#input\_create\_secret\_vault) | Create a key vault for the client secrets entered in Settings (SPN overrides, customer tenants); the web app reads and writes it with its managed identity. false = those secrets stay in files on the app's own disk. | `bool` | `true` | no |
 | <a name="input_create_sso_app"></a> [create\_sso\_app](#input\_create\_sso\_app) | true = Terraform creates the sign-in app registration. false = the app registration comes from your own<br/>request process: set sso\_app\_client\_id (and sso\_client\_secret if the team hands out a secret instead of adding<br/>the federated credential); the output sso\_app\_request lists everything to ask them for. | `bool` | `true` | no |
-| <a name="input_customers"></a> [customers](#input\_customers) | Customer tenants the dashboard scans besides its own, keyed by a short customer key (lowercase letters, digits,<br/>- or \_; it names the app roles `Admin-<key>`, `User-<key>` and `<Area>.Read-<key>`, the Entra<br/>groups and the storage container).<br/>  name             shown in the tenant tabs<br/>  tenant\_id        the customer's Entra tenant ID<br/>  client\_id        the app registration made in that tenant (see the customer\_onboarding output). Empty until<br/>                   it exists; it can also be set in the app's Settings. Its client secret is entered only in<br/>                   the app's Settings, so it never lands in the Terraform state.<br/>  subscription\_ids limit the scans to these subscriptions (empty = every one the app can see there)<br/>  enabled          false = keep the customer but stop scanning it<br/>  admin\_members    object IDs of users who get `Admin-<key>` (this customer, every area)<br/>  user\_members     object IDs of users who get `User-<key>` (this customer, every area; same access as `Admin-<key>`)<br/>  area\_roles       per area (identity, platform, security, cost): creates `<Area>.Read-<key>` for this<br/>                   customer (read, run and accept findings); read\_members get it (run\_members is<br/>                   deprecated and joins read\_members)<br/>Terraform never touches a customer tenant: the app registration and its permissions are made there by hand. | <pre>map(object({<br/>    name             = string<br/>    tenant_id        = string<br/>    subscription_ids = optional(list(string), [])<br/>    client_id        = optional(string, "")<br/>    enabled          = optional(bool, true)<br/>    admin_members    = optional(list(string), [])<br/>    user_members     = optional(list(string), [])<br/>    area_roles = optional(map(object({<br/>      read_members = optional(list(string), [])<br/>      run_members  = optional(list(string), [])<br/>    })), {})<br/>  }))</pre> | `{}` | no |
+| <a name="input_customers"></a> [customers](#input\_customers) | Customer tenants the dashboard scans besides its own, keyed by a short customer key (lowercase letters, digits,<br/>- or \_; it names the app roles `Admin-<key>`, `User-<key>` and `<Area>.Read-<key>`, the Entra<br/>groups and the storage container).<br/>  name             shown in the tenant tabs<br/>  tenant\_id        the customer's Entra tenant ID<br/>  client\_id        the app registration made in that tenant (see the customer\_onboarding output). Empty until<br/>                   it exists; it can also be set in the app's Settings. Its client secret is entered only in<br/>                   the app's Settings, so it never lands in the Terraform state.<br/>  subscription\_ids limit the scans to these subscriptions (empty = every one the app can see there)<br/>  enabled          false = keep the customer but stop scanning it<br/>  admin\_members    object IDs of users who get `Admin-<key>` (this customer, every area)<br/>  user\_members     object IDs of users who get `User-<key>` (this customer, every area; same access as `Admin-<key>`)<br/>  area\_roles       per area (identity, platform, security, cost): creates `<Area>.Read-<key>` for this<br/>                   customer (read, run and accept findings); read\_members get it (run\_members is<br/>                   deprecated and joins read\_members)<br/>  extra\_graph\_checks opt-in checks this customer wants (same values as extra\_graph\_checks): only adds their<br/>                   permissions to the customer\_onboarding steps; the customer grants them and the check is<br/>                   turned on on that tenant's Settings tab. Empty = nothing extra is asked of the customer.<br/>Terraform never touches a customer tenant: the app registration and its permissions are made there by hand. | <pre>map(object({<br/>    name               = string<br/>    tenant_id          = string<br/>    subscription_ids   = optional(list(string), [])<br/>    client_id          = optional(string, "")<br/>    enabled            = optional(bool, true)<br/>    admin_members      = optional(list(string), [])<br/>    user_members       = optional(list(string), [])<br/>    extra_graph_checks = optional(list(string), [])<br/>    area_roles = optional(map(object({<br/>      read_members = optional(list(string), [])<br/>      run_members  = optional(list(string), [])<br/>    })), {})<br/>  }))</pre> | `{}` | no |
+| <a name="input_deploy_github_subject"></a> [deploy\_github\_subject](#input\_deploy\_github\_subject) | With continuous\_deployment: the GitHub OIDC subject the deploy identity trusts, exactly (no wildcards). The default is the dashboard repo's "stable" environment, which the Promote to stable workflow's restart job uses; for a fork use repo:<owner>/<repo>:environment:stable. | `string` | `"repo:Gooseankles/cirrus-watch:environment:stable"` | no |
 | <a name="input_extra_app_settings"></a> [extra\_app\_settings](#input\_extra\_app\_settings) | Extra app settings, e.g. AZURE\_REQUIRED\_TAGS. | `map(string)` | `{}` | no |
+| <a name="input_extra_graph_checks"></a> [extra\_graph\_checks](#input\_extra\_graph\_checks) | Opt-in dashboard checks that need Graph application permissions beyond graph\_permissions. Each one listed is<br/>granted its permission (with grant\_graph\_permissions; else it is in the graph\_request output) and turned on in<br/>the home tenant (app setting EXTRA\_GRAPH\_CHECKS). Empty (default) = no extra permission and no new consent.<br/>  risky-users     IdentityRiskyUser.Read.All (Entra ID Protection risky users; needs Entra ID P2)<br/>  secure-score    SecurityEvents.Read.All (Microsoft Secure Score and its improvement actions)<br/>  admin-units     AdministrativeUnit.Read.All (guest or disabled admins of administrative units)<br/>  directory-sync  Organization.Read.All (sync from on-premises Active Directory late or stopped)<br/>Customer tenants are not affected: see customers.extra\_graph\_checks. | `list(string)` | `[]` | no |
 | <a name="input_grant_graph_permissions"></a> [grant\_graph\_permissions](#input\_grant\_graph\_permissions) | Give the system-assigned identity the Microsoft Graph application permissions the tools use (user and group<br/>names, group members, app registration secrets, access packages). Needs a Privileged Role Administrator or<br/>Global Administrator running terraform. | `bool` | `true` | no |
 | <a name="input_grant_sso_consent"></a> [grant\_sso\_consent](#input\_grant\_sso\_consent) | Grant tenant-wide admin consent for the sign-in app's delegated permissions (openid, profile), so tenants that<br/>do not let users consent themselves do not show "Need admin approval" at sign-in. Only with create\_sso\_app =<br/>true. A service principal running terraform (a pipeline) needs the Microsoft Graph application permission<br/>DelegatedPermissionGrant.ReadWrite.All; a person needs Application Administrator or Global Administrator.<br/>false = an admin clicks "Grant admin consent" on the Enterprise app's Permissions page instead. | `bool` | `true` | no |
 | <a name="input_graph_permissions"></a> [graph\_permissions](#input\_graph\_permissions) | Microsoft Graph application permissions for the system-assigned identity. | `list(string)` | <pre>[<br/>  "User.Read.All",<br/>  "GroupMember.Read.All",<br/>  "Application.Read.All",<br/>  "EntitlementManagement.Read.All",<br/>  "RoleManagement.Read.Directory",<br/>  "AuditLog.Read.All",<br/>  "Policy.Read.All",<br/>  "DelegatedPermissionGrant.Read.All",<br/>  "LicenseAssignment.Read.All",<br/>  "PrivilegedEligibilitySchedule.Read.AzureADGroup",<br/>  "PrivilegedAssignmentSchedule.Read.AzureADGroup"<br/>]</pre> | no |
@@ -515,7 +571,6 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 |------|-------------|
 | <a name="output_customer_containers"></a> [customer\_containers](#output\_customer\_containers) | History storage container per customer. |
 | <a name="output_customer_onboarding"></a> [customer\_onboarding](#output\_customer\_onboarding) | Per customer: the app registration to make in that tenant and the permissions to give it. Terraform does not touch customer tenants. |
-| <a name="output_deploy_webhook_url"></a> [deploy\_webhook\_url](#output\_deploy\_webhook\_url) | With continuous\_deployment: the URL that makes the app pull its image again. Holds the publishing password; put it in the dashboard repo's STABLE\_DEPLOY\_WEBHOOKS secret (one URL per line) so Promote to stable updates this app. null otherwise. |
 | <a name="output_graph_request"></a> [graph\_request](#output\_graph\_request) | What to ask an Entra admin for when grant\_graph\_permissions = false: the scan identity's Graph application permissions. |
 | <a name="output_history_storage_url"></a> [history\_storage\_url](#output\_history\_storage\_url) | Blob endpoint of the history storage account (null when create\_history\_storage = false). |
 | <a name="output_private_network"></a> [private\_network](#output\_private\_network) | VNet integration subnet, how storage and the vault are reached, their private endpoints and the web app's own private endpoint (null when private\_network = false). |
@@ -526,6 +581,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="output_sso_app_client_id"></a> [sso\_app\_client\_id](#output\_sso\_app\_client\_id) | Client ID of the sign-in app registration. |
 | <a name="output_sso_app_request"></a> [sso\_app\_request](#output\_sso\_app\_request) | What to ask the app-registration team for when create\_sso\_app = false. |
 | <a name="output_sso_identity_client_id"></a> [sso\_identity\_client\_id](#output\_sso\_identity\_client\_id) | Client ID of the user-assigned identity used for secretless SSO. |
+| <a name="output_stable_deployment"></a> [stable\_deployment](#output\_stable\_deployment) | With continuous\_deployment: this web app's entry for the dashboard repo's STABLE\_DEPLOYMENTS variable (a JSON list of these), so Promote to stable restarts it. IDs and names only, no secret. null otherwise. |
 | <a name="output_url"></a> [url](#output\_url) | Dashboard address. |
 | <a name="output_web_app_id"></a> [web\_app\_id](#output\_web\_app\_id) | Resource ID of the web app. |
 | <a name="output_web_app_principal_id"></a> [web\_app\_principal\_id](#output\_web\_app\_principal\_id) | Object ID of the web app's system-assigned identity (the shared SPN). Extra roles can go in shared\_spn\_access or be granted elsewhere with this ID. |

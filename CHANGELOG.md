@@ -11,6 +11,15 @@ Read this before you raise `?ref=`.
 
 - **v1.10.0: needs app image 0.61.0.0 or newer.** Older images answer `/health` with the sign-in page, so the
   health check and its alert would report the app as unhealthy. With a pinned `image` tag, raise it first.
+- **v1.10.0: `continuous_deployment` no longer uses the deploy webhook; the `deploy_webhook_url` output is gone.**
+  The variable keeps its name, but it now makes a deploy identity that GitHub Actions signs in as (OIDC, no
+  password) and turns basic authentication and the open Kudu site off. A root configuration that reads
+  `deploy_webhook_url` fails to plan: remove that reference. Applying needs Owner or User Access Administrator on the
+  dashboard's resource group (it creates a custom role). Then put `terraform output -json stable_deployment` in the
+  dashboard repo's `STABLE_DEPLOYMENTS` variable (README, Continuous deployment) and delete the old
+  `STABLE_DEPLOY_WEBHOOKS` secret. Without `continuous_deployment` nothing changes. Kept as a minor version, not
+  2.0.0: the output existed only with `continuous_deployment`, carried the publishing password, and no known
+  deployment used it.
 
 - **v1.9.0: `private_access` defaults to `"service_endpoint"`.** A deployment with `private_network = true` that
   never set `private_access` loses its storage and vault private endpoints and private DNS zones on the next apply,
@@ -52,6 +61,35 @@ Read this before you raise `?ref=`.
   the README says how to find a version's digest (`docker buildx imagetools inspect`). A validation refuses any other
   form. `repo:tag` and a bare repo (`:latest`) give the same image name as before, so nothing changes on apply; a
   registry with a port (`host:5000/repo:tag`) is no longer cut at the port.
+- `deploy_github_subject` (default `repo:Gooseankles/cirrus-watch:environment:stable`) and the `stable_deployment`
+  output (client ID, tenant ID, subscription ID, resource group, site name), for continuous deployment through
+  GitHub OIDC.
+- README: how to check an image's cosign signature before pinning its digest (App Service does not check
+  signatures; `:stable` is checked when it is promoted).
+- `extra_graph_checks` (default `[]`): opt-in dashboard checks that need more Graph application permissions:
+  `risky-users` (`IdentityRiskyUser.Read.All`, Entra ID P2), `secure-score` (`SecurityEvents.Read.All`),
+  `admin-units` (`AdministrativeUnit.Read.All`) and `directory-sync` (`Organization.Read.All`). Each one listed is
+  granted to the web app's identity with the other Graph permissions (`grant_graph_permissions`; otherwise it is in
+  the `graph_request` output) and turned on with the app setting `EXTRA_GRAPH_CHECKS` (app image 0.65.0.0 or
+  newer). A validation refuses other values. Empty = no change and no new consent.
+- `customers.<key>.extra_graph_checks` (default `[]`): adds those checks' permissions, and where to turn them on,
+  to that customer's `customer_onboarding` steps. Nothing else changes for the customer.
+
+### Changed
+
+- `continuous_deployment = true` makes a user-assigned identity `id-<name>-deploy` with a federated credential for
+  GitHub Actions (issuer `https://token.actions.githubusercontent.com`, subject `deploy_github_subject`) and a custom
+  role `Cirrus Watch deploy (<name>)` on the web app that may only read and restart it. The dashboard repo's
+  Promote to stable workflow restarts the app with it, and App Service pulls the image again on restart. All free.
+- Basic authentication on the Kudu (scm) site stays off and the scm site follows the site's access restrictions,
+  with or without `continuous_deployment`. `DOCKER_ENABLE_CI` is no longer set.
+- `continuous_deployment` is allowed with `public_network_access = false` (the restart goes through Resource
+  Manager).
+- CI pins `actions/checkout` by commit SHA like the other actions.
+
+### Removed
+
+- The `deploy_webhook_url` output (it held the site's publishing password).
 
 ## [1.9.0] - 2026-10-30
 

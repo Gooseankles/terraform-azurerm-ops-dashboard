@@ -68,10 +68,9 @@ output "web_app_id" {
   value       = module.dashboard.web_app_id
 }
 
-output "deploy_webhook_url" {
-  description = "With continuous_deployment: the URL that makes the app pull its image again. Holds the publishing password; put it in the dashboard repo's STABLE_DEPLOY_WEBHOOKS secret (one URL per line) so Promote to stable updates this app. null otherwise."
-  sensitive   = true
-  value       = module.dashboard.deploy_webhook_url
+output "stable_deployment" {
+  description = "With continuous_deployment: this app's entry for the dashboard repo's STABLE_DEPLOYMENTS variable (JSON list). null otherwise."
+  value       = module.dashboard.stable_deployment
 }
 
 output "graph_request" {

@@ -34,9 +34,20 @@ variable "image" {
 }
 
 variable "continuous_deployment" {
-  description = "Let the app pull a new image when Docker Hub's tag moves: turns on App Service continuous deployment (DOCKER_ENABLE_CI) and the deploy webhook (output deploy_webhook_url), which needs basic authentication on the Kudu (scm) site. false = the app pulls only on restart or image change."
+  description = "Let the dashboard repo's Promote to stable workflow restart this app, so it pulls the new :stable at once: makes a user-assigned identity id-<name>-deploy that trusts GitHub's OIDC token (deploy_github_subject) and may only read and restart this web app (output stable_deployment). No publishing password; basic authentication stays off. false = the app pulls only on restart or image change."
   type        = bool
   default     = false
+}
+
+variable "deploy_github_subject" {
+  description = "With continuous_deployment: the GitHub OIDC subject the deploy identity trusts, exactly (no wildcards). The default is the dashboard repo's \"stable\" environment, which the Promote to stable workflow's restart job uses; for a fork use repo:<owner>/<repo>:environment:stable."
+  type        = string
+  default     = "repo:Gooseankles/cirrus-watch:environment:stable"
+
+  validation {
+    condition     = can(regex("^repo:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+:.+$", var.deploy_github_subject))
+    error_message = "deploy_github_subject must look like repo:<owner>/<repo>:environment:<name> (or :ref:refs/heads/<branch>)."
+  }
 }
 
 variable "shared_spn_access" {
@@ -104,6 +115,26 @@ variable "graph_permissions" {
     "PrivilegedEligibilitySchedule.Read.AzureADGroup",
     "PrivilegedAssignmentSchedule.Read.AzureADGroup",
   ]
+}
+
+variable "extra_graph_checks" {
+  description = <<-EOT
+    Opt-in dashboard checks that need Graph application permissions beyond graph_permissions. Each one listed is
+    granted its permission (with grant_graph_permissions; else it is in the graph_request output) and turned on in
+    the home tenant (app setting EXTRA_GRAPH_CHECKS). Empty (default) = no extra permission and no new consent.
+      risky-users     IdentityRiskyUser.Read.All (Entra ID Protection risky users; needs Entra ID P2)
+      secure-score    SecurityEvents.Read.All (Microsoft Secure Score and its improvement actions)
+      admin-units     AdministrativeUnit.Read.All (guest or disabled admins of administrative units)
+      directory-sync  Organization.Read.All (sync from on-premises Active Directory late or stopped)
+    Customer tenants are not affected: see customers.extra_graph_checks.
+  EOT
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for c in var.extra_graph_checks : contains(["risky-users", "secure-score", "admin-units", "directory-sync"], c)])
+    error_message = "extra_graph_checks may only hold risky-users, secure-score, admin-units and directory-sync."
+  }
 }
 
 variable "create_history_storage" {
@@ -285,16 +316,20 @@ variable "customers" {
       area_roles       per area (identity, platform, security, cost): creates `<Area>.Read-<key>` for this
                        customer (read, run and accept findings); read_members get it (run_members is
                        deprecated and joins read_members)
+      extra_graph_checks opt-in checks this customer wants (same values as extra_graph_checks): only adds their
+                       permissions to the customer_onboarding steps; the customer grants them and the check is
+                       turned on on that tenant's Settings tab. Empty = nothing extra is asked of the customer.
     Terraform never touches a customer tenant: the app registration and its permissions are made there by hand.
   EOT
   type = map(object({
-    name             = string
-    tenant_id        = string
-    subscription_ids = optional(list(string), [])
-    client_id        = optional(string, "")
-    enabled          = optional(bool, true)
-    admin_members    = optional(list(string), [])
-    user_members     = optional(list(string), [])
+    name               = string
+    tenant_id          = string
+    subscription_ids   = optional(list(string), [])
+    client_id          = optional(string, "")
+    enabled            = optional(bool, true)
+    admin_members      = optional(list(string), [])
+    user_members       = optional(list(string), [])
+    extra_graph_checks = optional(list(string), [])
     area_roles = optional(map(object({
       read_members = optional(list(string), [])
       run_members  = optional(list(string), [])
@@ -313,6 +348,10 @@ variable "customers" {
   validation {
     condition     = alltrue(flatten([for k, c in var.customers : [for a in keys(c.area_roles) : contains(["identity", "platform", "security", "cost"], a)]]))
     error_message = "A customer's area_roles keys must be identity, platform, security or cost."
+  }
+  validation {
+    condition     = alltrue(flatten([for k, c in var.customers : [for x in c.extra_graph_checks : contains(["risky-users", "secure-score", "admin-units", "directory-sync"], x)]]))
+    error_message = "A customer's extra_graph_checks may only hold risky-users, secure-score, admin-units and directory-sync."
   }
 }
 
@@ -419,8 +458,7 @@ variable "vault_private_dns_zone_id" {
 variable "app_private_endpoint" {
   description = <<-EOT
     Give the web app itself an inbound private endpoint in the VNet. Public network access stays on, but the access
-    restrictions deny every network except allowed_ip_ranges and allowed_subnet_ids (the scm site too, unless
-    continuous_deployment keeps it open for the deploy webhook). Needs private_network = true. People then need a
+    restrictions deny every network except allowed_ip_ranges and allowed_subnet_ids (the scm site too). Needs private_network = true. People then need a
     network path to the VNet (VPN, ExpressRoute, peering) and DNS that resolves privatelink.azurewebsites.net (the
     zone is created and linked to the VNet unless app_private_dns_zone_id is set).
   EOT

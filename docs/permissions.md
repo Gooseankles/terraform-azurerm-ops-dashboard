@@ -33,8 +33,8 @@ keys and certificates instead of Key Vault Reader. A vault whose firewall keeps 
 
 | Permission | Used for |
 | --- | --- |
-| `User.Read.All` | Access lookup (search people by name and find them), names of role holders; PIM: names, guest and disabled state of everyone with PIM access |
-| `GroupMember.Read.All` | Group memberships and group search (access lookup, with the chain through nested groups; access review; privileged roles: members of groups that hold an admin role; access packages: who is in each approver group; PIM: members and owners of groups that hold a role) |
+| `User.Read.All` | Access lookup (search people by name and find them), names of role holders; PIM: names, guest and disabled state of everyone with PIM access; Guest owners and Administrative units: guest and disabled state of group owners and scoped admins |
+| `GroupMember.Read.All` | Group memberships and group search (access lookup, with the chain through nested groups; access review; privileged roles: members of groups that hold an admin role; access packages: who is in each approver group; PIM: members and owners of groups that hold a role; guest owners: every group's owners) |
 | `Application.Read.All` | App registration secret and certificate expiry, federated credentials, redirect URIs and supported account types; enterprise apps |
 | `EntitlementManagement.Read.All` | Access packages (only matters with Entra ID Governance / P2) |
 | `RoleManagement.Read.Directory` | Privileged roles: who holds Entra admin roles, PIM eligibility (PIM needs P2); PIM: role settings, eligibility and activation history; access lookup: a person's or group's Entra roles; Conditional Access: which admins a policy leaves out |
@@ -43,6 +43,22 @@ keys and certificates instead of Key Vault Reader. A vault whose firewall keeps 
 | `DelegatedPermissionGrant.Read.All` | App permissions: delegated consents given to apps |
 | `LicenseAssignment.Read.All` | Licence coverage: the licences the tenant owns |
 | `PrivilegedEligibilitySchedule.Read.AzureADGroup`, `PrivilegedAssignmentSchedule.Read.AzureADGroup` | Licence coverage: who is eligible or time-bound in PIM for Groups; PIM: who can activate a group membership, and when they last did |
+
+**Optional Graph permissions**, only for the opt-in checks listed in `extra_graph_checks` (default none, so nothing
+extra is granted and nobody is asked for new consent). Each check listed is granted its permission with
+`grant_graph_permissions` (or added to the `graph_request` output) and turned on in the home tenant
+(`EXTRA_GRAPH_CHECKS`):
+
+| `extra_graph_checks` value | Permission | Used for |
+| --- | --- | --- |
+| `risky-users` | `IdentityRiskyUser.Read.All` | Risky users in Entra ID Protection (needs Entra ID P2; without it the check logs that and reports nothing) |
+| `secure-score` | `SecurityEvents.Read.All` | Microsoft Secure Score: the score, a drop against last week, the open improvement actions |
+| `admin-units` | `AdministrativeUnit.Read.All` | Administrative units: guest or disabled scoped admins, empty restricted units |
+| `directory-sync` | `Organization.Read.All` | Directory sync from on-premises Active Directory late or stopped |
+
+A customer's `extra_graph_checks` only adds those permissions to its `customer_onboarding` steps; the customer
+grants them and turns the check on in the dashboard (Settings, that tenant's tab). A customer tenant never takes the
+home tenant's list. Guest owners needs nothing extra (`GroupMember.Read.All`).
 
 All of these only read. Without P1 the stale accounts and MFA coverage scans and the admin MFA check report that the licence is
 missing, and the legacy sign-ins scan notes it in the log and reports nothing; the other checks still run.
@@ -120,6 +136,18 @@ The app registration people sign in with. It reads no data: it has the delegated
 `profile` (admin consent, `grant_sso_consent`), the app roles Admin, User, Admin-&lt;key&gt; and User-&lt;key&gt;,
 and a federated credential for the user-assigned identity, so it has no secret.
 
+## Deploy identity (continuous deployment)
+
+Only with `continuous_deployment = true`: the user-assigned identity `id-<name>-deploy`, which the dashboard repo's
+Promote to stable workflow signs in as (GitHub OIDC, federated credential for `deploy_github_subject`; no secret).
+
+| Role | On | Used for |
+| --- | --- | --- |
+| Custom role `Cirrus Watch deploy (<name>)`: `Microsoft.Web/sites/read`, `Microsoft.Web/sites/restart/action` | The web app only | Restart it after `:stable` moves, so App Service pulls the image again |
+
+Nothing else: it cannot read or change app settings, see publishing credentials or reach any data. The built-in
+Website Contributor was not used because it could read the app settings (the session secret and admin password).
+
 ## Whoever runs Terraform
 
 A person or a pipeline service principal in the home tenant:
@@ -130,6 +158,7 @@ A person or a pipeline service principal in the home tenant:
 | Owner, User Access Administrator or Role Based Access Control Administrator | Role assignments: on each `shared_spn_access` scope, and on the dashboard's own resource group (storage, secret vault) |
 | Rights to register resource providers on the subscription | `Microsoft.Web`, `Microsoft.Storage`, `Microsoft.ManagedIdentity`, `Microsoft.KeyVault` (or remove `resource_providers_to_register` from `versions.tf` if they are already registered) |
 | Network Contributor (subscription or existing VNet) | `private_network = true` |
+| Owner or User Access Administrator on the dashboard's resource group | The custom deploy role and its assignment (`continuous_deployment`; creating a role needs `Microsoft.Authorization/roleDefinitions/write`) |
 | Write access on the Log Analytics workspace, e.g. Log Analytics Contributor (Contributor covers it when it is in the same subscription) | Resource logs (`log_analytics_workspace_id`) |
 | Entra: Application Administrator | The SSO app registration (`create_sso_app`) |
 | Entra: Privileged Role Administrator or Global Administrator | The Graph permissions for the shared SPN (`grant_graph_permissions`; set `false` and ask an admin otherwise) |

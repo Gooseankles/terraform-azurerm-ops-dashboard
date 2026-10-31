@@ -38,7 +38,7 @@ variable "image" {
 }
 
 variable "continuous_deployment" {
-  description = "Let the app pull a new image when Docker Hub's tag moves: turns on App Service continuous deployment (DOCKER_ENABLE_CI) and the deploy webhook (output deploy_webhook_url), which needs basic authentication on the Kudu (scm) site. false = the app pulls only on restart or image change."
+  description = "Let the dashboard repo's Promote to stable workflow restart this app through GitHub OIDC (no password), so it pulls the new :stable at once (output stable_deployment). false = the app pulls only on restart or image change."
   type        = bool
   default     = false
 }
@@ -269,16 +269,19 @@ variable "customers" {
       area_roles       per area (identity, platform, security, cost): creates `<Area>.Read-<key>` for this
                        customer (read, run and accept findings); read_members get it (run_members is
                        deprecated and joins read_members)
+      extra_graph_checks opt-in checks this customer wants (risky-users, secure-score, admin-units,
+                       directory-sync): adds their Graph permissions to that customer's onboarding steps
     Terraform never touches a customer tenant: the app registration and its permissions are made there by hand.
   EOT
   type = map(object({
-    name             = string
-    tenant_id        = string
-    subscription_ids = optional(list(string), [])
-    client_id        = optional(string, "")
-    enabled          = optional(bool, true)
-    admin_members    = optional(list(string), [])
-    user_members     = optional(list(string), [])
+    name               = string
+    tenant_id          = string
+    subscription_ids   = optional(list(string), [])
+    client_id          = optional(string, "")
+    enabled            = optional(bool, true)
+    admin_members      = optional(list(string), [])
+    user_members       = optional(list(string), [])
+    extra_graph_checks = optional(list(string), [])
     area_roles = optional(map(object({
       read_members = optional(list(string), [])
       run_members  = optional(list(string), [])

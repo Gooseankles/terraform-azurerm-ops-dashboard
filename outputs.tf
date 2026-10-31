@@ -8,15 +8,15 @@ output "resource_group_name" {
   value       = azurerm_resource_group.this.name
 }
 
-output "deploy_webhook_url" {
-  description = "With continuous_deployment: the URL that makes the app pull its image again. Holds the publishing password; put it in the dashboard repo's STABLE_DEPLOY_WEBHOOKS secret (one URL per line) so Promote to stable updates this app. null otherwise."
-  sensitive   = true
-  value = var.continuous_deployment ? format(
-    "https://%s:%s@%s.scm.azurewebsites.net/api/registry/webhook",
-    azurerm_linux_web_app.this.site_credential[0].name,
-    azurerm_linux_web_app.this.site_credential[0].password,
-    var.name,
-  ) : null
+output "stable_deployment" {
+  description = "With continuous_deployment: this web app's entry for the dashboard repo's STABLE_DEPLOYMENTS variable (a JSON list of these), so Promote to stable restarts it. IDs and names only, no secret. null otherwise."
+  value = var.continuous_deployment ? {
+    clientId       = azurerm_user_assigned_identity.deploy[0].client_id
+    tenantId       = azurerm_user_assigned_identity.deploy[0].tenant_id
+    subscriptionId = element(split("/", azurerm_linux_web_app.this.id), 2)
+    resourceGroup  = azurerm_resource_group.this.name
+    name           = azurerm_linux_web_app.this.name
+  } : null
 }
 
 output "web_app_id" {
@@ -81,7 +81,7 @@ output "graph_request" {
     Microsoft Graph application permissions for Cirrus Watch (${var.name}) scan identity
     - Service principal (managed identity) object ID: ${azurerm_linux_web_app.this.identity[0].principal_id}
     - Application permissions, with admin consent (Privileged Role Administrator or Global Administrator):
-    %{for p in var.graph_permissions}    ${p}
+    %{for p in local.all_graph_permissions}    ${p}
     %{endfor}- All read-only. No directory role is needed.
     - With PowerShell: New-MgServicePrincipalAppRoleAssignment for each, resource = Microsoft Graph
       (appId 00000003-0000-0000-c000-000000000000).
@@ -112,6 +112,10 @@ output "customer_onboarding" {
       "2. On the app: Certificates & secrets > Client secrets > New client secret. Paste its Value in the dashboard:",
       "     Settings > Customer tenants > ${k} > Edit > Client secret (never in Terraform). Note the expiry date.",
       "3. API permissions > Microsoft Graph > Application: ${join(", ", var.graph_permissions)}; then Grant admin consent.",
+      ], length(c.extra_graph_checks) == 0 ? [] : [
+      "   Extra checks (${join(", ", c.extra_graph_checks)}): also ${join(", ", distinct(flatten([for x in c.extra_graph_checks : local.extra_graph_permission_map[x]])))}, with admin consent;",
+      "   then turn them on in the dashboard: Settings > ${k} tab > Extra Graph checks.",
+      ], [
       "4. Read roles for it, per subscription (or on a management group):",
       ], [
       for pair in setproduct(length(c.subscription_ids) > 0 ? c.subscription_ids : ["<subscription-id>"], local.scan_roles) :
