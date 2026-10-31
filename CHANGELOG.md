@@ -48,6 +48,10 @@ Read this before you raise `?ref=`.
   audit and platform logs), the secret vault (`audit`) and the history storage account's blob service
   (`StorageWrite`, `StorageDelete`; reads are left out). Logs only, no metrics. Nothing is made without a workspace;
   ingestion is billed per GB.
+- `image` takes a digest as well as a tag (`trozity/azure-ops-dashboard@sha256:<digest>`) to pin the exact image;
+  the README says how to find a version's digest (`docker buildx imagetools inspect`). A validation refuses any other
+  form. `repo:tag` and a bare repo (`:latest`) give the same image name as before, so nothing changes on apply; a
+  registry with a port (`host:5000/repo:tag`) is no longer cut at the port.
 
 ## [1.9.0] - 2026-10-30
 

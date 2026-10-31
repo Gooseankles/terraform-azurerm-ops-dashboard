@@ -382,6 +382,19 @@ image is the `image` input (default `trozity/azure-ops-dashboard:stable`, promot
 itself); set it to `:latest` for every push, or to a version such as `:0.55.0.0` to pin the app. Every input and
 output is listed under [Reference](#reference); what changed between versions is in [CHANGELOG.md](CHANGELOG.md).
 
+A tag can be moved to other image bytes; a digest cannot. To pin the exact image, give `image` its digest instead
+of a tag: `image = "trozity/azure-ops-dashboard@sha256:<64 hex digits>"` (the module passes `repo:tag` and
+`repo@sha256:<digest>` to App Service as given and refuses any other form). Find the digest of a version with
+
+```sh
+docker buildx imagetools inspect trozity/azure-ops-dashboard:0.64.0.0
+```
+
+and use the `Digest:` line at the top (the image index, which holds the image and its attestations).
+The same command with `--format '{{ json .SBOM }}'` or `--format '{{ json .Provenance }}'` shows the image's SBOM and
+build provenance (app 0.64.1.0 and newer carry an SBOM). A digest never moves, so `continuous_deployment` does
+nothing for it: change `image` to update.
+
 ## Continuous deployment
 
 With `continuous_deployment = true` the app pulls its image again as soon as the deploy webhook is called, instead
@@ -471,7 +484,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_grant_sso_consent"></a> [grant\_sso\_consent](#input\_grant\_sso\_consent) | Grant tenant-wide admin consent for the sign-in app's delegated permissions (openid, profile), so tenants that<br/>do not let users consent themselves do not show "Need admin approval" at sign-in. Only with create\_sso\_app =<br/>true. A service principal running terraform (a pipeline) needs the Microsoft Graph application permission<br/>DelegatedPermissionGrant.ReadWrite.All; a person needs Application Administrator or Global Administrator.<br/>false = an admin clicks "Grant admin consent" on the Enterprise app's Permissions page instead. | `bool` | `true` | no |
 | <a name="input_graph_permissions"></a> [graph\_permissions](#input\_graph\_permissions) | Microsoft Graph application permissions for the system-assigned identity. | `list(string)` | <pre>[<br/>  "User.Read.All",<br/>  "GroupMember.Read.All",<br/>  "Application.Read.All",<br/>  "EntitlementManagement.Read.All",<br/>  "RoleManagement.Read.Directory",<br/>  "AuditLog.Read.All",<br/>  "Policy.Read.All",<br/>  "DelegatedPermissionGrant.Read.All",<br/>  "LicenseAssignment.Read.All",<br/>  "PrivilegedEligibilitySchedule.Read.AzureADGroup",<br/>  "PrivilegedAssignmentSchedule.Read.AzureADGroup"<br/>]</pre> | no |
 | <a name="input_history_retention_days"></a> [history\_retention\_days](#input\_history\_retention\_days) | How many days of run history the dashboard keeps. | `number` | `730` | no |
-| <a name="input_image"></a> [image](#input\_image) | Docker Hub image and tag. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app. | `string` | `"trozity/azure-ops-dashboard:stable"` | no |
+| <a name="input_image"></a> [image](#input\_image) | Docker Hub image and tag, or image and digest. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app; @sha256:<digest> pins the exact image bytes. | `string` | `"trozity/azure-ops-dashboard:stable"` | no |
 | <a name="input_location"></a> [location](#input\_location) | Azure region. | `string` | `"norwayeast"` | no |
 | <a name="input_log_analytics_workspace_id"></a> [log\_analytics\_workspace\_id](#input\_log\_analytics\_workspace\_id) | Resource ID of a Log Analytics workspace (/subscriptions/<id>/resourceGroups/<rg>/providers/<br/>Microsoft.OperationalInsights/workspaces/<name>) that gets resource logs from the web app (HTTP, console,<br/>audit and platform logs), the secret vault (audit) and the history storage account's blobs (writes and<br/>deletes), as the Azure security baselines recommend. No metrics are sent. null (default) = no diagnostic<br/>settings. Ingestion is billed per GB (Analytics tables; Basic tables cost less but are not set here) plus<br/>retention beyond the free days; the web app's HTTP logs (one row per request) are usually most of it. | `string` | `null` | no |
 | <a name="input_private_access"></a> [private\_access](#input\_private\_access) | How the web app reaches the history storage account and the secret vault when private\_network = true.<br/>"service\_endpoint" (default): the integration subnet gets the Microsoft.Storage and Microsoft.KeyVault service<br/>endpoints and both firewalls let in that subnet only (an existing subnet needs both service endpoints turned on<br/>first). No private endpoints or DNS zones, so no extra cost; keep the storage account in the VNet's region.<br/>"private\_endpoint": private endpoints and private DNS zones (billed per endpoint and per GB); both firewalls<br/>deny all other networks. | `string` | `"service_endpoint"` | no |

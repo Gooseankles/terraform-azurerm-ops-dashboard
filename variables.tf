@@ -22,9 +22,15 @@ variable "sku_name" {
 }
 
 variable "image" {
-  description = "Docker Hub image and tag. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app."
+  description = "Docker Hub image and tag, or image and digest. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app; @sha256:<digest> pins the exact image bytes."
   type        = string
   default     = "trozity/azure-ops-dashboard:stable"
+
+  # An optional registry host (with a port), a lowercase repository path, then a tag or a digest (not both).
+  validation {
+    condition     = can(regex("^([A-Za-z0-9.-]+(:[0-9]+)?/)?[a-z0-9]+([._-]+[a-z0-9]+)*(/[a-z0-9]+([._-]+[a-z0-9]+)*)*(:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|@sha256:[0-9a-f]{64})?$", var.image))
+    error_message = "image must be repo, repo:tag or repo@sha256:<64 lowercase hex digits> (lowercase repository path, optional registry host, no spaces, not both a tag and a digest)."
+  }
 }
 
 variable "continuous_deployment" {

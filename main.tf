@@ -3,9 +3,10 @@ locals {
   site_url            = "https://${var.name}.azurewebsites.net"
   redirect_uri        = "${local.site_url}/auth/callback"
 
-  image_parts = split(":", var.image)
-  image_name  = local.image_parts[0]
-  image_tag   = length(local.image_parts) > 1 ? local.image_parts[1] : "latest"
+  # repo:tag and repo@sha256:<digest> go to App Service as given; a bare repo gets :latest. Only the last path part
+  # can hold a tag, so a registry port (host:5000/repo) is not taken for one.
+  image_last = element(split("/", var.image), length(split("/", var.image)) - 1)
+  image_ref  = strcontains(var.image, "@") || strcontains(local.image_last, ":") ? var.image : "${var.image}:latest"
 
   # A bare address becomes a /32 (or /128 for IPv6).
   allowed_ip_ranges = [for ip in var.allowed_ip_ranges : strcontains(ip, "/") ? ip : (strcontains(ip, ":") ? "${ip}/128" : "${ip}/32")]
@@ -119,7 +120,7 @@ resource "azurerm_linux_web_app" "this" {
 
     application_stack {
       docker_registry_url = "https://index.docker.io"
-      docker_image_name   = "${local.image_name}:${local.image_tag}"
+      docker_image_name   = local.image_ref
     }
   }
 
