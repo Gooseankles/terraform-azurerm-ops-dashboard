@@ -222,6 +222,9 @@ resource "azurerm_storage_account" "history" {
     delete_retention_policy {
       days = 7
     }
+    container_delete_retention_policy {
+      days = 7
+    }
   }
 }
 

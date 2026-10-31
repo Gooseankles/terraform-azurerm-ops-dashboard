@@ -41,6 +41,8 @@ Read this before you raise `?ref=`.
 - `alert-<name>-health`: a metric alert (severity 1) on `HealthCheckStatus` below 100 for 15 minutes, made with the
   other alerts when `alert_emails` is set. It fires when no scheduled scan has finished for 26 hours or the app is
   down.
+- Container soft delete on the history storage account (`container_delete_retention_policy`, 7 days, like blob soft
+  delete): a deleted container can be restored for a week. Changed in place; only deleted data is billed.
 
 ## [1.9.0] - 2026-10-30
 
