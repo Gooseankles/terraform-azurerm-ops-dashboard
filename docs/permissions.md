@@ -130,6 +130,7 @@ A person or a pipeline service principal in the home tenant:
 | Owner, User Access Administrator or Role Based Access Control Administrator | Role assignments: on each `shared_spn_access` scope, and on the dashboard's own resource group (storage, secret vault) |
 | Rights to register resource providers on the subscription | `Microsoft.Web`, `Microsoft.Storage`, `Microsoft.ManagedIdentity`, `Microsoft.KeyVault` (or remove `resource_providers_to_register` from `versions.tf` if they are already registered) |
 | Network Contributor (subscription or existing VNet) | `private_network = true` |
+| Write access on the Log Analytics workspace, e.g. Log Analytics Contributor (Contributor covers it when it is in the same subscription) | Resource logs (`log_analytics_workspace_id`) |
 | Entra: Application Administrator | The SSO app registration (`create_sso_app`) |
 | Entra: Privileged Role Administrator or Global Administrator | The Graph permissions for the shared SPN (`grant_graph_permissions`; set `false` and ask an admin otherwise) |
 | Entra: Groups Administrator (or `Group.ReadWrite.All`) | Role groups (`create_role_groups`) |

@@ -28,6 +28,9 @@ One `apply` creates:
   reads and writes it with its managed identity; Terraform never writes a secret, so none reach the state. Add
   object IDs to `secret_vault_admin_ids` for people who may see the secrets in the portal. Purge protection is off
   by default (`secret_vault_purge_protection`), so a deleted deployment can reuse the name.
+- **Resource logs** (`log_analytics_workspace_id`, off by default): diagnostic settings that send the web app's,
+  the secret vault's and the history blobs' logs to a Log Analytics workspace you already have (see
+  [Resource logs](#resource-logs)).
 
 Every identity's permissions, including the app registration each customer makes in their own tenant, are listed in
 [docs/permissions.md](docs/permissions.md).
@@ -240,6 +243,32 @@ an instance that stays unhealthy for an hour. `health_check_eviction_time_in_min
 instances. **Needs app image 0.61.0.0 or newer**: an older app answers `/health` with the sign-in page, which counts
 as failed.
 
+## Resource logs
+
+```hcl
+log_analytics_workspace_id = "/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.OperationalInsights/workspaces/<name>"
+```
+
+The App Service, Key Vault and Storage security baselines recommend resource logs. With a workspace set, the module
+adds a diagnostic setting (`diag-<name>`) to:
+
+| Resource | Logs |
+| --- | --- |
+| Web app | `AppServiceHTTPLogs`, `AppServiceConsoleLogs`, `AppServiceAuditLogs`, `AppServicePlatformLogs` |
+| Secret vault (`create_secret_vault`) | category group `audit` (every request to the vault) |
+| History storage blobs (`create_history_storage`) | `StorageWrite`, `StorageDelete` (reads are left out) |
+
+`AppServiceAppLogs` is left out: on a Linux container it only carries Java apps' logs, and the dashboard's own
+lines are in the console log. Blob reads are left out because the app reads the history on every page; the storage
+`audit` category group would take them too, so the two categories are named instead.
+
+No platform metrics are sent: the alarms above read metrics from Azure Monitor directly, which keeps them 93 days
+for free. Nothing is created while `log_analytics_workspace_id` is null (default), because Log Analytics bills
+ingestion per GB (and retention beyond the workspace's free days). The web app's HTTP logs, one row per request,
+are usually most of the volume. The workspace can be in another subscription; whoever runs Terraform needs write
+access to it. Diagnostic settings are made through Resource Manager and sent by Azure Monitor, so the storage and
+vault firewalls (`private_network`, `public_network_access = false`) need no change.
+
 ## Who can run it
 
 (All in one table in [docs/permissions.md](docs/permissions.md#whoever-runs-terraform).)
@@ -444,6 +473,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_history_retention_days"></a> [history\_retention\_days](#input\_history\_retention\_days) | How many days of run history the dashboard keeps. | `number` | `730` | no |
 | <a name="input_image"></a> [image](#input\_image) | Docker Hub image and tag. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app. | `string` | `"trozity/azure-ops-dashboard:stable"` | no |
 | <a name="input_location"></a> [location](#input\_location) | Azure region. | `string` | `"norwayeast"` | no |
+| <a name="input_log_analytics_workspace_id"></a> [log\_analytics\_workspace\_id](#input\_log\_analytics\_workspace\_id) | Resource ID of a Log Analytics workspace (/subscriptions/<id>/resourceGroups/<rg>/providers/<br/>Microsoft.OperationalInsights/workspaces/<name>) that gets resource logs from the web app (HTTP, console,<br/>audit and platform logs), the secret vault (audit) and the history storage account's blobs (writes and<br/>deletes), as the Azure security baselines recommend. No metrics are sent. null (default) = no diagnostic<br/>settings. Ingestion is billed per GB (Analytics tables; Basic tables cost less but are not set here) plus<br/>retention beyond the free days; the web app's HTTP logs (one row per request) are usually most of it. | `string` | `null` | no |
 | <a name="input_private_access"></a> [private\_access](#input\_private\_access) | How the web app reaches the history storage account and the secret vault when private\_network = true.<br/>"service\_endpoint" (default): the integration subnet gets the Microsoft.Storage and Microsoft.KeyVault service<br/>endpoints and both firewalls let in that subnet only (an existing subnet needs both service endpoints turned on<br/>first). No private endpoints or DNS zones, so no extra cost; keep the storage account in the VNet's region.<br/>"private\_endpoint": private endpoints and private DNS zones (billed per endpoint and per GB); both firewalls<br/>deny all other networks. | `string` | `"service_endpoint"` | no |
 | <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | Existing subnet for the private endpoints (storage and secret vault with private\_access = "private\_endpoint", the web app with app\_private\_endpoint). Not needed otherwise. | `string` | `""` | no |
 | <a name="input_private_network"></a> [private\_network](#input\_private\_network) | Join the web app to a virtual network (VNet integration) and let only its subnet reach the history storage<br/>account and the secret vault: their firewalls deny all other networks and let in the integration subnet through<br/>service endpoints (no extra cost). private\_access = "private\_endpoint" uses private endpoints instead (they cost<br/>money). Without existing subnets a small VNet is created (vnet\_address\_space). | `bool` | `false` | no |

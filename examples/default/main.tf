@@ -27,6 +27,8 @@ module "dashboard" {
   alert_memory_pct = var.alert_memory_pct
   alert_5xx_count  = var.alert_5xx_count
 
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
   create_secret_vault           = var.create_secret_vault
   secret_vault_name             = var.secret_vault_name
   secret_vault_purge_protection = var.secret_vault_purge_protection

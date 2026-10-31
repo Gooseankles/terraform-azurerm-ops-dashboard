@@ -43,6 +43,11 @@ Read this before you raise `?ref=`.
   down.
 - Container soft delete on the history storage account (`container_delete_retention_policy`, 7 days, like blob soft
   delete): a deleted container can be restored for a week. Changed in place; only deleted data is billed.
+- `log_analytics_workspace_id` (default null): resource logs to a Log Analytics workspace, as the App Service, Key
+  Vault and Storage security baselines recommend. Diagnostic settings `diag-<name>` on the web app (HTTP, console,
+  audit and platform logs), the secret vault (`audit`) and the history storage account's blob service
+  (`StorageWrite`, `StorageDelete`; reads are left out). Logs only, no metrics. Nothing is made without a workspace;
+  ingestion is billed per GB.
 
 ## [1.9.0] - 2026-10-30
 

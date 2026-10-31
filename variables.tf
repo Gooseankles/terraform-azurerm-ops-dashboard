@@ -142,6 +142,24 @@ variable "alert_5xx_count" {
   default     = 10
 }
 
+variable "log_analytics_workspace_id" {
+  description = <<-EOT
+    Resource ID of a Log Analytics workspace (/subscriptions/<id>/resourceGroups/<rg>/providers/
+    Microsoft.OperationalInsights/workspaces/<name>) that gets resource logs from the web app (HTTP, console,
+    audit and platform logs), the secret vault (audit) and the history storage account's blobs (writes and
+    deletes), as the Azure security baselines recommend. No metrics are sent. null (default) = no diagnostic
+    settings. Ingestion is billed per GB (Analytics tables; Basic tables cost less but are not set here) plus
+    retention beyond the free days; the web app's HTTP logs (one row per request) are usually most of it.
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.log_analytics_workspace_id == null || can(regex("(?i)^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.OperationalInsights/workspaces/[^/]+$", var.log_analytics_workspace_id))
+    error_message = "log_analytics_workspace_id must be null or the resource ID of a Log Analytics workspace (/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.OperationalInsights/workspaces/<name>)."
+  }
+}
+
 variable "create_secret_vault" {
   description = "Create a key vault for the client secrets entered in Settings (SPN overrides, customer tenants); the web app reads and writes it with its managed identity. false = those secrets stay in files on the app's own disk."
   type        = bool

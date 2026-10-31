@@ -153,6 +153,12 @@ variable "alert_5xx_count" {
   default     = 10
 }
 
+variable "log_analytics_workspace_id" {
+  description = "Log Analytics workspace (resource ID) for resource logs from the web app, secret vault and history blobs. null = none. Ingestion is billed per GB; the web app's HTTP logs are usually most of it."
+  type        = string
+  default     = null
+}
+
 variable "create_secret_vault" {
   description = "Create a key vault for the client secrets entered in Settings (SPN overrides, customer tenants); the web app reads and writes it with its managed identity. false = those secrets stay in files on the app's own disk."
   type        = bool
