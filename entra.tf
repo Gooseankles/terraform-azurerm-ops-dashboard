@@ -179,7 +179,7 @@ data "azuread_service_principal" "msgraph" {
 }
 
 locals {
-  # Opt-in checks and the extra Graph application permission each needs. Keep
+  # Extra checks and the extra Graph application permission each needs. Keep
   # in step with EXTRA_CHECKS in the app's src/tools/extraChecks.js.
   extra_graph_permission_map = {
     "risky-users"    = ["IdentityRiskyUser.Read.All"]
@@ -189,7 +189,7 @@ locals {
   }
   extra_graph_permissions = distinct(flatten([for c in var.extra_graph_checks : local.extra_graph_permission_map[c]]))
   # What the home tenant's scan identity is granted: the default set plus the
-  # opt-in checks' permissions (nothing extra while extra_graph_checks is empty).
+  # extra checks' permissions (nothing extra while extra_graph_checks is empty).
   all_graph_permissions = distinct(concat(var.graph_permissions, local.extra_graph_permissions))
 }
 

@@ -49,12 +49,12 @@ variable "shared_spn_access" {
     override) gets access, and with which Azure roles. Each entry is a scope: a management group
     ("/providers/Microsoft.Management/managementGroups/<id>"; the tenant root group's ID is the tenant ID), a
     subscription ("/subscriptions/<id>"), a resource group or a single resource such as a Key Vault. roles
-    defaults to Reader and Cost Management Reader, which is what the scans need (add "Key Vault Reader" only for the
-    dashboard's optional Key Vault item check). Empty list = no role assignments (grant them yourself).
+    defaults to Reader, Cost Management Reader and Key Vault Reader (the last for the dashboard's Key Vault item
+    check: names and expiry dates, never values; leave it out and turn that check off if you prefer). Empty list = no role assignments (grant them yourself).
   EOT
   type = list(object({
     scope = string
-    roles = optional(list(string), ["Reader", "Cost Management Reader"])
+    roles = optional(list(string), ["Reader", "Cost Management Reader", "Key Vault Reader"])
   }))
   default = []
 
@@ -269,8 +269,8 @@ variable "customers" {
       area_roles       per area (identity, platform, security, cost): creates `<Area>.Read-<key>` for this
                        customer (read, run and accept findings); read_members get it (run_members is
                        deprecated and joins read_members)
-      extra_graph_checks opt-in checks this customer wants (risky-users, secure-score, admin-units,
-                       directory-sync): adds their Graph permissions to that customer's onboarding steps
+      extra_graph_checks extra checks this customer grants (risky-users, secure-score, admin-units,
+                       directory-sync; default all four): adds their Graph permissions to that customer's onboarding steps
     Terraform never touches a customer tenant: the app registration and its permissions are made there by hand.
   EOT
   type = map(object({
@@ -281,7 +281,7 @@ variable "customers" {
     enabled            = optional(bool, true)
     admin_members      = optional(list(string), [])
     user_members       = optional(list(string), [])
-    extra_graph_checks = optional(list(string), [])
+    extra_graph_checks = optional(list(string), ["risky-users", "secure-score", "admin-units", "directory-sync"])
     area_roles = optional(map(object({
       read_members = optional(list(string), [])
       run_members  = optional(list(string), [])

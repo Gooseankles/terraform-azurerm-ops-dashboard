@@ -20,8 +20,8 @@ shared_spn_access = [
   { scope = "/providers/Microsoft.Management/managementGroups/00000000-0000-0000-0000-000000000000" },
   # Only some subscriptions instead:
   # { scope = "/subscriptions/00000000-0000-0000-0000-000000000000" },
-  # With the optional Key Vault item check (KEYVAULT_ITEM_CHECK in the app's Settings):
-  # { scope = "/subscriptions/<id>", roles = ["Reader", "Cost Management Reader", "Key Vault Reader"] },
+  # Without Key Vault Reader (then turn KEYVAULT_ITEM_CHECK off in the app's Settings):
+  # { scope = "/subscriptions/<id>", roles = ["Reader", "Cost Management Reader"] },
 ]
 
 # Scan only these subscriptions (blank = every one the shared SPN can see).
@@ -90,7 +90,7 @@ user_principal_ids  = []
 #     admin_members    = []    # user object IDs: see and run Acme's scans
 #     user_members     = []    # user object IDs: the same (kept for older setups)
 #     area_roles       = {}    # e.g. { security = {} }: Security.Read-acme
-#     extra_graph_checks = []  # e.g. ["directory-sync"]: its Graph permission joins Acme's onboarding steps
+#     extra_graph_checks = []  # default all four: their Graph permissions join Acme's onboarding steps
 #   }
 # }
 

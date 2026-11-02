@@ -9,6 +9,14 @@ each is a git tag `v<major>.<minor>.<patch>` to pin with `?ref=`. The app has it
 
 Read this before you raise `?ref=`.
 
+- **v1.10.0: the extra Graph checks are granted by default.** `extra_graph_checks` now lists all four
+  (`IdentityRiskyUser.Read.All`, `SecurityEvents.Read.All`, `AdministrativeUnit.Read.All`, `Organization.Read.All`),
+  so with `grant_graph_permissions` the next apply grants them, and they are in `graph_request` otherwise. Set
+  `extra_graph_checks = []` to keep the old grants; the app setting is then `EXTRA_GRAPH_CHECKS=none`, which keeps
+  the checks off (app 0.70.0.0 runs them all when the setting is blank). Customers' onboarding steps list them too.
+- **v1.10.0: Key Vault Reader is back in the default `shared_spn_access` roles** (app 0.70.0.0 turns the Key Vault
+  item check on by default). Scopes that use the default roles get it on the next apply. To keep it out, list
+  `roles = ["Reader", "Cost Management Reader"]` and set `KEYVAULT_ITEM_CHECK=off`.
 - **v1.10.0: needs app image 0.61.0.0 or newer.** Older images answer `/health` with the sign-in page, so the
   health check and its alert would report the app as unhealthy. With a pinned `image` tag, raise it first.
 - **v1.10.0: `continuous_deployment` no longer uses the deploy webhook; the `deploy_webhook_url` output is gone.**
@@ -66,17 +74,19 @@ Read this before you raise `?ref=`.
   GitHub OIDC.
 - README: how to check an image's cosign signature before pinning its digest (App Service does not check
   signatures; `:stable` is checked when it is promoted).
-- `extra_graph_checks` (default `[]`): opt-in dashboard checks that need more Graph application permissions:
+- `extra_graph_checks` (default all four): dashboard checks that need more Graph application permissions:
   `risky-users` (`IdentityRiskyUser.Read.All`, Entra ID P2), `secure-score` (`SecurityEvents.Read.All`),
   `admin-units` (`AdministrativeUnit.Read.All`) and `directory-sync` (`Organization.Read.All`). Each one listed is
   granted to the web app's identity with the other Graph permissions (`grant_graph_permissions`; otherwise it is in
   the `graph_request` output) and turned on with the app setting `EXTRA_GRAPH_CHECKS` (app image 0.65.0.0 or
-  newer). A validation refuses other values. Empty = no change and no new consent.
-- `customers.<key>.extra_graph_checks` (default `[]`): adds those checks' permissions, and where to turn them on,
-  to that customer's `customer_onboarding` steps. Nothing else changes for the customer.
+  newer). A validation refuses other values. Empty = no extra permission and `EXTRA_GRAPH_CHECKS=none`.
+- `customers.<key>.extra_graph_checks` (default all four): adds those checks' permissions to that customer's
+  `customer_onboarding` steps, and says how to turn the checks off there. Nothing else changes for the customer.
 
 ### Changed
 
+- `shared_spn_access` roles and the customers' onboarding role steps include Key Vault Reader again (default roles
+  Reader, Cost Management Reader and Key Vault Reader), for the app's Key Vault item check, now on by default.
 - `continuous_deployment = true` makes a user-assigned identity `id-<name>-deploy` with a federated credential for
   GitHub Actions (issuer `https://token.actions.githubusercontent.com`, subject `deploy_github_subject`) and a custom
   role `Cirrus Watch deploy (<name>)` on the web app that may only read and restart it. The dashboard repo's

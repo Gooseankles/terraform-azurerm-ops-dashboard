@@ -22,9 +22,9 @@ module "dashboard" {
   storage_account_name    = var.storage_account_name
   history_retention_days  = var.history_retention_days
 
-  # Opt-in checks that need more Graph permissions (none by default, so no new
-  # consent). Each one listed is granted its permission and turned on here:
-  # extra_graph_checks = ["directory-sync", "secure-score", "admin-units", "risky-users"]
+  # Checks that need more Graph permissions: all four by default, each granted
+  # its permission and turned on here. [] grants none and turns them off:
+  # extra_graph_checks = ["directory-sync", "secure-score"]
 
   alert_emails     = var.alert_emails
   alert_cpu_pct    = var.alert_cpu_pct

@@ -24,9 +24,9 @@ automatically:
 | --- | --- |
 | Reader | Every scan: resources, Resource Graph (including Advisor, backup items and resource changes), metrics, diagnostic settings, role assignments, NSG rules, storage container and database firewall lists, App Service config, AKS versions, quota usage, Defender for Cloud secure scores, recommendations and plans, budgets and resource locks, virtual network subnet usage, Azure Policy (including the `checkPolicyRestrictions` probes, a read operation), Azure Monitor (agents, data collection rules, alert rules, action groups, workspaces, and a `Heartbeat` query per Log Analytics workspace through ARM; give Log Analytics Reader on the workspaces if Reader alone is refused) |
 | Cost Management Reader | Cost anomalies and cost history |
-| Key Vault Reader | Optional: only for the Key Vault item check (`KEYVAULT_ITEM_CHECK`, off by default). Names and expiry dates of secrets, keys and certificates on RBAC vaults; never a secret's value |
+| Key Vault Reader | For the Key Vault item check (`KEYVAULT_ITEM_CHECK`, on by default; in the default `shared_spn_access` roles). Names and expiry dates of secrets, keys and certificates on RBAC vaults; never a secret's value |
 
-With the item check on, a vault still on access policies needs a policy for the identity with **list** on secrets,
+A vault still on access policies needs a policy for the identity with **list** on secrets,
 keys and certificates instead of Key Vault Reader. A vault whose firewall keeps the dashboard out shows as "Items not checked".
 
 **Microsoft Graph application permissions**, with admin consent:
@@ -44,8 +44,8 @@ keys and certificates instead of Key Vault Reader. A vault whose firewall keeps 
 | `LicenseAssignment.Read.All` | Licence coverage: the licences the tenant owns |
 | `PrivilegedEligibilitySchedule.Read.AzureADGroup`, `PrivilegedAssignmentSchedule.Read.AzureADGroup` | Licence coverage: who is eligible or time-bound in PIM for Groups; PIM: who can activate a group membership, and when they last did |
 
-**Optional Graph permissions**, only for the opt-in checks listed in `extra_graph_checks` (default none, so nothing
-extra is granted and nobody is asked for new consent). Each check listed is granted its permission with
+**Extra Graph permissions**, for the checks listed in `extra_graph_checks` (all four by default; `[]` grants none
+and sets `EXTRA_GRAPH_CHECKS=none`, which turns them off). Each check listed is granted its permission with
 `grant_graph_permissions` (or added to the `graph_request` output) and turned on in the home tenant
 (`EXTRA_GRAPH_CHECKS`):
 
@@ -56,9 +56,10 @@ extra is granted and nobody is asked for new consent). Each check listed is gran
 | `admin-units` | `AdministrativeUnit.Read.All` | Administrative units: guest or disabled scoped admins, empty restricted units |
 | `directory-sync` | `Organization.Read.All` | Directory sync from on-premises Active Directory late or stopped |
 
-A customer's `extra_graph_checks` only adds those permissions to its `customer_onboarding` steps; the customer
-grants them and turns the check on in the dashboard (Settings, that tenant's tab). A customer tenant never takes the
-home tenant's list. Guest owners needs nothing extra (`GroupMember.Read.All`).
+A customer's `extra_graph_checks` (all four by default) only adds those permissions to its `customer_onboarding`
+steps. The dashboard runs the checks in a customer tenant unless that tenant's Settings tab turns them off (`none`);
+until the customer grants a permission, that check shows one scan error. A customer tenant never takes the home
+tenant's value. Guest owners needs nothing extra (`GroupMember.Read.All`).
 
 All of these only read. Without P1 the stale accounts and MFA coverage scans and the admin MFA check report that the licence is
 missing, and the legacy sign-ins scan notes it in the log and reports nothing; the other checks still run.
@@ -87,15 +88,15 @@ customer tenant). It needs **the same access as the shared SPN, granted in the c
    `AuditLog.Read.All`, `Policy.Read.All`, `DelegatedPermissionGrant.Read.All`, `LicenseAssignment.Read.All`,
    `PrivilegedEligibilitySchedule.Read.AzureADGroup`, `PrivilegedAssignmentSchedule.Read.AzureADGroup`, then **Grant admin consent**
    (needs a Privileged Role Administrator or Global Administrator in that tenant). No directory role.
-4. **Subscriptions (Azure RBAC)**: `Reader` and `Cost Management Reader` (plus `Key Vault Reader` only for the
-   optional Key Vault item check) for the app's
+4. **Subscriptions (Azure RBAC)**: `Reader`, `Cost Management Reader` and `Key Vault Reader` (the last for the
+   Key Vault item check; leave it out and turn that check off if you prefer) for the app's
    service principal on each subscription to scan, or on a management group (the tenant root group's ID is the
    tenant ID) to cover all of them:
 
    ```sh
    az role assignment create --assignee <client-id> --role "Reader"                 --scope /subscriptions/<id>
    az role assignment create --assignee <client-id> --role "Cost Management Reader" --scope /subscriptions/<id>
-   # only with the Key Vault item check on:
+   # for the Key Vault item check:
    az role assignment create --assignee <client-id> --role "Key Vault Reader"       --scope /subscriptions/<id>
    ```
 

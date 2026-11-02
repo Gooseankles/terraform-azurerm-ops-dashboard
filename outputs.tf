@@ -112,9 +112,11 @@ output "customer_onboarding" {
       "2. On the app: Certificates & secrets > Client secrets > New client secret. Paste its Value in the dashboard:",
       "     Settings > Customer tenants > ${k} > Edit > Client secret (never in Terraform). Note the expiry date.",
       "3. API permissions > Microsoft Graph > Application: ${join(", ", var.graph_permissions)}; then Grant admin consent.",
-      ], length(c.extra_graph_checks) == 0 ? [] : [
-      "   Extra checks (${join(", ", c.extra_graph_checks)}): also ${join(", ", distinct(flatten([for x in c.extra_graph_checks : local.extra_graph_permission_map[x]])))}, with admin consent;",
-      "   then turn them on in the dashboard: Settings > ${k} tab > Extra Graph checks.",
+      ], length(c.extra_graph_checks) == 0 ? [
+      "   The dashboard's extra Graph checks are on by default: turn them off in Settings > ${k} tab > Extra Graph checks (none).",
+      ] : [
+      "   Extra checks (${join(", ", c.extra_graph_checks)}): also ${join(", ", distinct(flatten([for x in c.extra_graph_checks : local.extra_graph_permission_map[x]])))}, with admin consent.",
+      "   They run by default; Settings > ${k} tab > Extra Graph checks lists fewer, or none.",
       ], [
       "4. Read roles for it, per subscription (or on a management group):",
       ], [

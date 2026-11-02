@@ -144,7 +144,8 @@ resource "azurerm_linux_web_app" "this" {
     } : {},
     local.has_customers ? { DASHBOARD_TENANTS = jsonencode(local.dashboard_tenants) } : {},
     length(var.scan_subscription_ids) > 0 ? { AZURE_SUBSCRIPTION_IDS = join(",", var.scan_subscription_ids) } : {},
-    length(var.extra_graph_checks) > 0 ? { EXTRA_GRAPH_CHECKS = join(",", var.extra_graph_checks) } : {},
+    # The app runs every extra check when this is blank, so an empty list says none.
+    { EXTRA_GRAPH_CHECKS = length(var.extra_graph_checks) > 0 ? join(",", var.extra_graph_checks) : "none" },
     var.admin_password != "" ? { DASHBOARD_ADMIN_PASSWORD = var.admin_password } : {},
     var.extra_app_settings,
   )
