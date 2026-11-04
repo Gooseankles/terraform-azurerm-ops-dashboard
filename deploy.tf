@@ -26,7 +26,7 @@ resource "azurerm_federated_identity_credential" "deploy_github" {
 
 # Tighter than Website Contributor, which could also change app settings and read the publishing credentials.
 resource "azurerm_role_definition" "deploy" {
-  count             = var.continuous_deployment ? 1 : 0
+  count             = var.continuous_deployment && var.manage_access ? 1 : 0
   name              = "Cirrus Watch deploy (${var.name})"
   scope             = azurerm_resource_group.this.id
   description       = "Read and restart the Cirrus Watch web app ${var.name} so it pulls its image again."
@@ -41,7 +41,7 @@ resource "azurerm_role_definition" "deploy" {
 }
 
 resource "azurerm_role_assignment" "deploy" {
-  count              = var.continuous_deployment ? 1 : 0
+  count              = var.continuous_deployment && var.manage_access ? 1 : 0
   scope              = azurerm_linux_web_app.this.id
   role_definition_id = azurerm_role_definition.deploy[0].role_definition_resource_id
   principal_id       = azurerm_user_assigned_identity.deploy[0].principal_id

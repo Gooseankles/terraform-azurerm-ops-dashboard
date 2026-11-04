@@ -18,6 +18,7 @@ module "dashboard" {
   grant_graph_permissions = var.grant_graph_permissions
   graph_permissions       = var.graph_permissions
   grant_sso_consent       = var.grant_sso_consent
+  manage_access           = var.manage_access
   create_history_storage  = var.create_history_storage
   storage_account_name    = var.storage_account_name
   history_retention_days  = var.history_retention_days

@@ -232,7 +232,7 @@ resource "azurerm_storage_container" "history" {
 }
 
 resource "azurerm_role_assignment" "history_app" {
-  count                = var.create_history_storage ? 1 : 0
+  count                = var.create_history_storage && var.manage_access ? 1 : 0
   scope                = azurerm_storage_account.history[0].id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_linux_web_app.this.identity[0].principal_id
@@ -250,7 +250,7 @@ locals {
 }
 
 resource "azurerm_role_assignment" "scan" {
-  for_each             = local.scan_role_assignments
+  for_each             = var.manage_access ? local.scan_role_assignments : {}
   scope                = each.value.scope
   role_definition_name = each.value.role
   principal_id         = azurerm_linux_web_app.this.identity[0].principal_id

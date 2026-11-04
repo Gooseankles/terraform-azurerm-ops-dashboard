@@ -1,7 +1,8 @@
 name: CI
 
 # Checks every push and pull request: formatting, that the module and both
-# examples validate (no Azure sign-in, no state), and that the Reference section
+# examples validate (no Azure sign-in, no state), the module tests with mock
+# providers (tests/), and that the Reference section
 # of README.md matches what terraform-docs writes. Every action is pinned by
 # commit SHA with its version as a comment.
 on:
@@ -33,6 +34,8 @@ jobs:
             terraform -chdir="$dir" validate
             echo "::endgroup::"
           done
+      - name: Module tests (mock providers)
+        run: terraform test
 
   docs:
     name: README reference is current

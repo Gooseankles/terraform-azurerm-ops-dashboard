@@ -87,6 +87,20 @@ variable "grant_graph_permissions" {
   default     = true
 }
 
+variable "manage_access" {
+  description = <<-EOT
+    true: Terraform also grants the access it creates identities for: Azure role assignments (shared_spn_access,
+    history storage, secret vault, deploy role), the Graph application permissions, sign-in app consent and who may
+    sign in. false: only the resources and identities are created, nothing is granted (grant_graph_permissions and
+    grant_sso_consent are then ignored), and the access_request output lists every grant for an admin to add by
+    hand. Applying then needs no Owner or User Access Administrator, and no Entra role for the Graph permissions or
+    consent; Application Administrator (create_sso_app) and Groups Administrator (create_role_groups) are still
+    needed for what is created.
+  EOT
+  type        = bool
+  default     = true
+}
+
 variable "grant_sso_consent" {
   description = <<-EOT
     Grant tenant-wide admin consent for the sign-in app's delegated permissions (openid, profile), so tenants that

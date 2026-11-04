@@ -53,6 +53,9 @@ Read this before you raise `?ref=`.
 
 ### Added
 
+- `manage_access` (default `true`): `false` creates the resources and identities but no role assignments, Graph
+  permissions, sign-in consent or app role assignments, and the new `access_request` output lists every grant
+  (scope, role, object IDs) for an admin to add by hand. Module tests with mock providers (`tests/`) run in CI.
 - The web app uses the app's `GET /health` as its App Service health check (`health_check_path = "/health"`,
   eviction after 10 minutes).
 - `alert-<name>-health`: a metric alert (severity 1) on `HealthCheckStatus` below 100 for 15 minutes, made with the

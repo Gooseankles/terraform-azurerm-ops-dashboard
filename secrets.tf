@@ -34,7 +34,7 @@ resource "azurerm_key_vault" "secrets" {
 }
 
 resource "azurerm_role_assignment" "secrets_app" {
-  count                = var.create_secret_vault ? 1 : 0
+  count                = var.create_secret_vault && var.manage_access ? 1 : 0
   scope                = azurerm_key_vault.secrets[0].id
   role_definition_name = "Key Vault Secrets Officer"
   principal_id         = azurerm_linux_web_app.this.identity[0].principal_id
@@ -44,7 +44,7 @@ resource "azurerm_role_assignment" "secrets_app" {
 # People or groups who may see and change the stored secrets in the portal
 # (break-glass); nobody else can read them.
 resource "azurerm_role_assignment" "secrets_admins" {
-  for_each             = var.create_secret_vault ? toset(var.secret_vault_admin_ids) : toset([])
+  for_each             = var.create_secret_vault && var.manage_access ? toset(var.secret_vault_admin_ids) : toset([])
   scope                = azurerm_key_vault.secrets[0].id
   role_definition_name = "Key Vault Secrets Officer"
   principal_id         = each.value

@@ -81,6 +81,12 @@ variable "grant_graph_permissions" {
   default     = true
 }
 
+variable "manage_access" {
+  description = "false: create the resources and identities only; the access_request output lists the grants for an admin."
+  type        = bool
+  default     = true
+}
+
 variable "grant_sso_consent" {
   description = <<-EOT
     Grant tenant-wide admin consent for the sign-in app's delegated permissions (openid, profile), so tenants that

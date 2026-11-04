@@ -15,7 +15,8 @@ the dashboard change a customer's resources.
 ## Shared SPN (home tenant)
 
 The web app's system-assigned managed identity. Every tool without its own SPN scans the home tenant with it.
-Terraform grants all of this through `shared_spn_access` and `grant_graph_permissions`.
+Terraform grants all of this through `shared_spn_access` and `grant_graph_permissions`, or, with `manage_access = false`,
+lists it in the `access_request` output for an admin to grant.
 
 **Azure roles**, on each subscription to scan, or once on a management group so new subscriptions are picked up
 automatically:
@@ -165,6 +166,11 @@ A person or a pipeline service principal in the home tenant:
 | Entra: Privileged Role Administrator or Global Administrator | The Graph permissions for the shared SPN (`grant_graph_permissions`; set `false` and ask an admin otherwise) |
 | Entra: Groups Administrator (or `Group.ReadWrite.All`) | Role groups (`create_role_groups`) |
 | Graph application permission `DelegatedPermissionGrant.ReadWrite.All` (pipeline SP only; a person needs Application Administrator) | Admin consent for sign-in (`grant_sso_consent`) |
+
+With `manage_access = false` Terraform grants nothing, so the rows for role assignments, the custom deploy role,
+the Graph permissions and sign-in consent fall away; Contributor, Application Administrator (with `create_sso_app`)
+and Groups Administrator (with `create_role_groups`) remain. The `access_request` output lists the grants for an
+admin to add by hand ([README](../README.md#when-an-admin-grants-the-access)).
 
 For a pipeline service principal, the Entra roles above are directory roles assigned to it (or the matching Graph
 application permissions: `Application.ReadWrite.All`, `AppRoleAssignment.ReadWrite.All`, `Group.ReadWrite.All`).

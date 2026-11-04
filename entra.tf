@@ -105,7 +105,7 @@ resource "azuread_service_principal" "dashboard" {
 # Tenant-wide admin consent for openid and profile: tenants that block user
 # consent would otherwise show "Need admin approval" to everyone at sign-in.
 resource "azuread_service_principal_delegated_permission_grant" "sso" {
-  count                                = var.create_sso_app && var.grant_sso_consent ? 1 : 0
+  count                                = var.create_sso_app && var.grant_sso_consent && var.manage_access ? 1 : 0
   service_principal_object_id          = azuread_service_principal.dashboard[0].object_id
   resource_service_principal_object_id = data.azuread_service_principal.msgraph[0].object_id
   claim_values                         = ["openid", "profile"]
@@ -144,28 +144,28 @@ resource "azuread_group_member" "role" {
 }
 
 resource "azuread_app_role_assignment" "role_groups" {
-  for_each            = var.create_role_groups && var.create_sso_app ? local.dashboard_roles : {}
+  for_each            = var.manage_access && var.create_role_groups && var.create_sso_app ? local.dashboard_roles : {}
   app_role_id         = each.value.id
   principal_object_id = azuread_group.role[each.key].object_id
   resource_object_id  = azuread_service_principal.dashboard[0].object_id
 }
 
 resource "azuread_app_role_assignment" "admins" {
-  for_each            = var.create_sso_app && !var.create_role_groups ? toset(var.admin_principal_ids) : toset([])
+  for_each            = var.manage_access && var.create_sso_app && !var.create_role_groups ? toset(var.admin_principal_ids) : toset([])
   app_role_id         = random_uuid.role_admin.result
   principal_object_id = each.value
   resource_object_id  = azuread_service_principal.dashboard[0].object_id
 }
 
 resource "azuread_app_role_assignment" "users" {
-  for_each            = var.create_sso_app && !var.create_role_groups ? toset(var.user_principal_ids) : toset([])
+  for_each            = var.manage_access && var.create_sso_app && !var.create_role_groups ? toset(var.user_principal_ids) : toset([])
   app_role_id         = random_uuid.role_user.result
   principal_object_id = each.value
   resource_object_id  = azuread_service_principal.dashboard[0].object_id
 }
 
 resource "azuread_app_role_assignment" "customer_members" {
-  for_each            = var.create_sso_app && !var.create_role_groups ? { for k, v in local.role_members : k => v if !contains(["Admin", "User"], v.role) } : {}
+  for_each            = var.manage_access && var.create_sso_app && !var.create_role_groups ? { for k, v in local.role_members : k => v if !contains(["Admin", "User"], v.role) } : {}
   app_role_id         = local.dashboard_roles[each.value.role].id
   principal_object_id = each.value.member
   resource_object_id  = azuread_service_principal.dashboard[0].object_id
@@ -174,7 +174,7 @@ resource "azuread_app_role_assignment" "customer_members" {
 # --- Microsoft Graph permissions for the scan identity ---
 
 data "azuread_service_principal" "msgraph" {
-  count     = var.grant_graph_permissions || (var.create_sso_app && var.grant_sso_consent) ? 1 : 0
+  count     = var.manage_access && (var.grant_graph_permissions || (var.create_sso_app && var.grant_sso_consent)) ? 1 : 0
   client_id = "00000003-0000-0000-c000-000000000000"
 }
 
@@ -194,7 +194,7 @@ locals {
 }
 
 resource "azuread_app_role_assignment" "graph" {
-  for_each            = var.grant_graph_permissions ? toset(local.all_graph_permissions) : toset([])
+  for_each            = var.manage_access && var.grant_graph_permissions ? toset(local.all_graph_permissions) : toset([])
   app_role_id         = data.azuread_service_principal.msgraph[0].app_role_ids[each.value]
   principal_object_id = azurerm_linux_web_app.this.identity[0].principal_id
   resource_object_id  = data.azuread_service_principal.msgraph[0].object_id

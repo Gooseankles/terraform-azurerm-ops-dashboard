@@ -289,7 +289,11 @@ vault firewalls (`private_network`, `public_network_access = false`) need no cha
 
 ## Who can run it
 
-(All in one table in [docs/permissions.md](docs/permissions.md#whoever-runs-terraform).)
+(All in one table in [docs/permissions.md](docs/permissions.md#whoever-runs-terraform).) With
+`manage_access = false` the role assignment rights (second item and the custom deploy role) and the Entra roles for
+the Graph permissions and consent are not needed; the rest stays (Contributor, Application Administrator for the
+app registration, Groups Administrator for the role groups, network, provider registration and Log Analytics). See
+[When an admin grants the access](#when-an-admin-grants-the-access).
 
 - `Contributor` on the subscription for the app itself.
 - `Owner`, `User Access Administrator` or `Role Based Access Control Administrator` on each `shared_spn_access` scope,
@@ -308,6 +312,28 @@ vault firewalls (`private_network`, `public_network_access = false`) need no cha
 - azurerm 5 registers no resource providers by itself. The root provider block registers `Microsoft.Web`,
   `Microsoft.Storage`, `Microsoft.ManagedIdentity` and `Microsoft.KeyVault`, which needs rights on the subscription; if they are already
   registered and you lack those rights, remove `resource_providers_to_register` from `versions.tf`.
+
+## When an admin grants the access
+
+Where the person or pipeline running Terraform may create resources but not grant access, set
+`manage_access = false` (default `true`). Terraform then creates the resources and the identities (the web app's
+scan identity, the sign-in and deploy identities, the sign-in app and the role groups) and grants nothing: no Azure
+role assignments (`shared_spn_access`, history storage, secret vault, the deploy role and its custom role
+definition), no Graph application permissions, no sign-in consent and no app role assignments.
+`grant_graph_permissions` and `grant_sso_consent` are ignored then.
+
+Run `terraform output -raw access_request` and send the text to the admins. It lists every grant with its scope,
+role and object IDs, in three groups: Azure role assignments (Owner or User Access Administrator), Graph
+application permissions (Privileged Role Administrator or Global Administrator) and the sign-in app's consent and
+app roles. Until they are granted, the dashboard's scans report what is missing (people cannot sign in before the
+app roles are assigned; use `admin_password` meanwhile). Applying again later does not undo grants made by hand.
+
+Changing an existing deployment from `true` to `false` makes Terraform delete the grants it made, and the scans
+and sign-in stop until they are added back. To keep them, take them out of the state first (they stay in Azure and
+Entra), for example `terraform state list | grep -E 'role_assignment|role_definition|delegated_permission_grant'`
+and `terraform state rm` on each, then apply with `false`. The other way round (`false` to `true` after grants were
+made by hand), the apply fails on grants that already exist (RoleAssignmentExists, a duplicate app role assignment
+or custom role name): delete the hand-made ones first, or bring them into the state with `terraform import`.
 
 ## Where to find what Terraform made in Entra
 
@@ -545,6 +571,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_image"></a> [image](#input\_image) | Docker Hub image and tag, or image and digest. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app; @sha256:<digest> pins the exact image bytes. | `string` | `"trozity/azure-ops-dashboard:stable"` | no |
 | <a name="input_location"></a> [location](#input\_location) | Azure region. | `string` | `"norwayeast"` | no |
 | <a name="input_log_analytics_workspace_id"></a> [log\_analytics\_workspace\_id](#input\_log\_analytics\_workspace\_id) | Resource ID of a Log Analytics workspace (/subscriptions/<id>/resourceGroups/<rg>/providers/<br/>Microsoft.OperationalInsights/workspaces/<name>) that gets resource logs from the web app (HTTP, console,<br/>audit and platform logs), the secret vault (audit) and the history storage account's blobs (writes and<br/>deletes), as the Azure security baselines recommend. No metrics are sent. null (default) = no diagnostic<br/>settings. Ingestion is billed per GB (Analytics tables; Basic tables cost less but are not set here) plus<br/>retention beyond the free days; the web app's HTTP logs (one row per request) are usually most of it. | `string` | `null` | no |
+| <a name="input_manage_access"></a> [manage\_access](#input\_manage\_access) | true: Terraform also grants the access it creates identities for: Azure role assignments (shared\_spn\_access,<br/>history storage, secret vault, deploy role), the Graph application permissions, sign-in app consent and who may<br/>sign in. false: only the resources and identities are created, nothing is granted (grant\_graph\_permissions and<br/>grant\_sso\_consent are then ignored), and the access\_request output lists every grant for an admin to add by<br/>hand. Applying then needs no Owner or User Access Administrator, and no Entra role for the Graph permissions or<br/>consent; Application Administrator (create\_sso\_app) and Groups Administrator (create\_role\_groups) are still<br/>needed for what is created. | `bool` | `true` | no |
 | <a name="input_private_access"></a> [private\_access](#input\_private\_access) | How the web app reaches the history storage account and the secret vault when private\_network = true.<br/>"service\_endpoint" (default): the integration subnet gets the Microsoft.Storage and Microsoft.KeyVault service<br/>endpoints and both firewalls let in that subnet only (an existing subnet needs both service endpoints turned on<br/>first). No private endpoints or DNS zones, so no extra cost; keep the storage account in the VNet's region.<br/>"private\_endpoint": private endpoints and private DNS zones (billed per endpoint and per GB); both firewalls<br/>deny all other networks. | `string` | `"service_endpoint"` | no |
 | <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | Existing subnet for the private endpoints (storage and secret vault with private\_access = "private\_endpoint", the web app with app\_private\_endpoint). Not needed otherwise. | `string` | `""` | no |
 | <a name="input_private_network"></a> [private\_network](#input\_private\_network) | Join the web app to a virtual network (VNet integration) and let only its subnet reach the history storage<br/>account and the secret vault: their firewalls deny all other networks and let in the integration subnet through<br/>service endpoints (no extra cost). private\_access = "private\_endpoint" uses private endpoints instead (they cost<br/>money). Without existing subnets a small VNet is created (vnet\_address\_space). | `bool` | `false` | no |
@@ -571,9 +598,10 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 
 | Name | Description |
 |------|-------------|
+| <a name="output_access_request"></a> [access\_request](#output\_access\_request) | With manage\_access = false: every grant Terraform left out (Azure roles, Graph permissions, sign-in consent and app roles), with scopes and object IDs, for an admin to add by hand. |
 | <a name="output_customer_containers"></a> [customer\_containers](#output\_customer\_containers) | History storage container per customer. |
 | <a name="output_customer_onboarding"></a> [customer\_onboarding](#output\_customer\_onboarding) | Per customer: the app registration to make in that tenant and the permissions to give it. Terraform does not touch customer tenants. |
-| <a name="output_graph_request"></a> [graph\_request](#output\_graph\_request) | What to ask an Entra admin for when grant\_graph\_permissions = false: the scan identity's Graph application permissions. |
+| <a name="output_graph_request"></a> [graph\_request](#output\_graph\_request) | What to ask an Entra admin for when grant\_graph\_permissions or manage\_access = false: the scan identity's Graph application permissions. |
 | <a name="output_history_storage_url"></a> [history\_storage\_url](#output\_history\_storage\_url) | Blob endpoint of the history storage account (null when create\_history\_storage = false). |
 | <a name="output_private_network"></a> [private\_network](#output\_private\_network) | VNet integration subnet, how storage and the vault are reached, their private endpoints and the web app's own private endpoint (null when private\_network = false). |
 | <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | Resource group the dashboard lives in. |

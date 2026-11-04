@@ -76,8 +76,8 @@ output "sso_app_request" {
 }
 
 output "graph_request" {
-  description = "What to ask an Entra admin for when grant_graph_permissions = false: the scan identity's Graph application permissions."
-  value       = var.grant_graph_permissions ? "Not needed: Terraform granted the Graph permissions." : <<-EOT
+  description = "What to ask an Entra admin for when grant_graph_permissions or manage_access = false: the scan identity's Graph application permissions."
+  value       = var.grant_graph_permissions && var.manage_access ? "Not needed: Terraform granted the Graph permissions." : <<-EOT
     Microsoft Graph application permissions for Cirrus Watch (${var.name}) scan identity
     - Service principal (managed identity) object ID: ${azurerm_linux_web_app.this.identity[0].principal_id}
     - Application permissions, with admin consent (Privileged Role Administrator or Global Administrator):
@@ -138,4 +138,45 @@ output "private_network" {
     app_private_ip        = local.app_private ? azurerm_private_endpoint.app[0].private_service_connection[0].private_ip_address : null
     app_public_access     = local.app_public_off ? "Disabled" : local.app_private ? (length(local.allowed_ip_ranges) + length(var.allowed_subnet_ids) > 0 ? "Enabled, private endpoint and allowed IPs/subnets only" : "Enabled, private endpoint only (access restrictions deny all networks)") : "Enabled"
   } : null
+}
+
+# Every grant Terraform leaves out with manage_access = false, one line each.
+locals {
+  app_principal = azurerm_linux_web_app.this.identity[0].principal_id
+  manual_azure_roles = concat(
+    [for k, a in local.scan_role_assignments : "${a.role} on ${a.scope} -> web app identity ${local.app_principal}"],
+    var.create_history_storage ? ["Storage Blob Data Contributor on ${azurerm_storage_account.history[0].id} -> web app identity ${local.app_principal}"] : [],
+    var.create_secret_vault ? concat(
+      ["Key Vault Secrets Officer on ${azurerm_key_vault.secrets[0].id} -> web app identity ${local.app_principal}"],
+      [for id in var.secret_vault_admin_ids : "Key Vault Secrets Officer on ${azurerm_key_vault.secrets[0].id} -> ${id} (break-glass)"]
+    ) : [],
+    var.continuous_deployment ? ["A custom role with only Microsoft.Web/sites/read and Microsoft.Web/sites/restart/action, assignable at ${azurerm_resource_group.this.id} (not Website Contributor: it can read the app settings), on ${azurerm_linux_web_app.this.id} -> deploy identity ${azurerm_user_assigned_identity.deploy[0].principal_id}"] : [],
+  )
+  manual_sign_in = !var.create_sso_app ? [] : concat(
+    ["Grant admin consent for openid and profile on Enterprise application ${azuread_service_principal.dashboard[0].object_id} (Permissions page)"],
+    var.create_role_groups
+    ? [for role, r in local.dashboard_roles : "App role ${role} -> group ${azuread_group.role[role].object_id}"]
+    : [for k, m in local.role_members : "App role ${m.role} -> ${m.member}"],
+  )
+}
+
+output "access_request" {
+  description = "With manage_access = false: every grant Terraform left out (Azure roles, Graph permissions, sign-in consent and app roles), with scopes and object IDs, for an admin to add by hand."
+  value       = var.manage_access ? "Not needed: Terraform granted the access." : <<-EOT
+    Access for Cirrus Watch (${var.name}), all to be added by an admin. The app reports what is missing until then.
+
+    Azure role assignments (Owner or User Access Administrator on the scope):
+    %{for l in local.manual_azure_roles}  - ${l}
+    %{endfor}%{if length(local.manual_azure_roles) == 0}  - none
+    %{endif}
+    Microsoft Graph application permissions with admin consent (Privileged Role Administrator or Global
+    Administrator) for web app identity ${local.app_principal}:
+    %{for p in local.all_graph_permissions}  - ${p}
+    %{endfor}%{if length(local.all_graph_permissions) == 0}  - none
+    %{endif}
+    Sign-in app (Application Administrator, or an owner of the Enterprise application for the app roles):
+    %{for l in local.manual_sign_in}  - ${l}
+    %{endfor}%{if length(local.manual_sign_in) == 0}  - none (create_sso_app = false: see sso_app_request)
+    %{endif}
+  EOT
 }

@@ -74,6 +74,11 @@ output "stable_deployment" {
 }
 
 output "graph_request" {
-  description = "What to ask an Entra admin for when grant_graph_permissions = false: the scan identity's Graph application permissions."
+  description = "What to ask an Entra admin for when grant_graph_permissions or manage_access = false: the scan identity's Graph application permissions."
   value       = module.dashboard.graph_request
+}
+
+output "access_request" {
+  description = "With manage_access = false: every grant Terraform left out, for an admin to add by hand."
+  value       = module.dashboard.access_request
 }
