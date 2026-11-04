@@ -49,6 +49,17 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+### Added
+
+- `SECURITY.md`: how to report a vulnerability privately (private vulnerability reporting is on) and what the
+  module does for a safe default.
+- CI job **IaC scan (Trivy)**: `trivy config` on every pull request and push; HIGH and CRITICAL findings fail it.
+  The two accepted findings for the public-by-default storage account and Key Vault are listed in
+  `.trivyignore.yaml` with their reasons; on `main` the full result also goes to the Security tab.
+- Dependabot (`.github/dependabot.yml`): weekly pull requests for the pinned GitHub Actions and for the provider
+  constraints in the module and both examples.
+- `main` is protected: changes come through a pull request with all CI checks green, admins included; linear history.
+
 ## [1.10.0] - 2026-11-04
 
 ### Added
