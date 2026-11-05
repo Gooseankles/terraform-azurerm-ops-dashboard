@@ -1,0 +1,19 @@
+# Accepted Trivy misconfiguration findings, each with its reason. The "IaC scan
+# (Trivy)" job in ci.yml names this file with --ignorefile (Trivy reads only a
+# plain .trivyignore by itself) and fails on any HIGH or CRITICAL finding that
+# is not listed here. Remove an entry when the reason stops being true. No
+# `paths`: Trivy reports these through the examples that call the module, so a
+# path filter on main.tf or secrets.tf alone does not match.
+misconfigurations:
+  - id: AVD-AZU-0012
+    statement: >-
+      The history storage account is public by default on purpose: a private
+      network (private endpoints, DNS zones, VNet) costs money and the account
+      has account keys off, public blob access off and TLS 1.2 as the minimum,
+      and the app reaches it with its managed identity. private_network = true
+      puts it behind a private endpoint and denies public access.
+  - id: AVD-AZU-0013
+    statement: >-
+      Same as above for the Key Vault (secrets.tf): default_action is Deny when
+      private_network = true and Allow otherwise. Secrets are read only by the
+      app's managed identity through RBAC; purge protection is on.

@@ -61,3 +61,30 @@ jobs:
         with:
           args: --no-progress --max-concurrency 8 --exclude "<|example\.(com|org)|contoso|azurewebsites\.net" "**/*.md"
           fail: true
+
+  iac:
+    name: IaC scan (Trivy)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # results in the Security tab
+    env:
+      # The official image pinned by digest (0.76.1), like the app's docker.yml;
+      # trivy-action is not used since its tags were hijacked in March 2026.
+      TRIVY: aquasec/trivy@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Misconfigurations (HIGH and CRITICAL fail, accepted ones in .trivyignore.yaml)
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work "$TRIVY" \
+            config . --skip-dirs tests --ignorefile .trivyignore.yaml --severity HIGH,CRITICAL --exit-code 1
+      - name: All findings, for the Security tab
+        if: always() && github.event_name != 'pull_request'
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work "$TRIVY" \
+            config . --skip-dirs tests --ignorefile .trivyignore.yaml --format sarif --output trivy.sarif
+      - uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
+        if: always() && github.event_name != 'pull_request' && hashFiles('trivy.sarif') != ''
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-iac

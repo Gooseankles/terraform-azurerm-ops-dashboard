@@ -1,0 +1,23 @@
+# Weekly update pull requests. GitHub Actions: the pinned commit SHA and its
+# version comment move together. Terraform: the provider constraints in the
+# module and in both examples (a PR comes when a provider leaves the allowed
+# range, for example azurerm 6). Each PR runs the CI checks before it can merge.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Oslo
+  - package-ecosystem: terraform
+    directories:
+      - /
+      - /examples/default
+      - /examples/existing-sso
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Oslo
