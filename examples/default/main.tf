@@ -1,6 +1,6 @@
 # Deploys the dashboard with the module at the root of this repo. To use the
 # module from another configuration instead:
-#   source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.10.0"
+#   source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.10.1"
 module "dashboard" {
   source = "../.."
 
@@ -12,7 +12,7 @@ module "dashboard" {
   continuous_deployment = var.continuous_deployment
   shared_spn_access = concat(
     var.shared_spn_access,
-    [for s in var.scan_scopes : { scope = s, roles = ["Reader", "Cost Management Reader"] }],
+    [for s in var.scan_scopes : { scope = s, roles = ["Reader", "Cost Management Reader", "Key Vault Reader"] }],
   )
   scan_subscription_ids   = var.scan_subscription_ids
   grant_graph_permissions = var.grant_graph_permissions

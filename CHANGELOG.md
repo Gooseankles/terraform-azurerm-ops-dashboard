@@ -49,6 +49,8 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-11-08
+
 ### Added
 
 - `SECURITY.md`: how to report a vulnerability privately (private vulnerability reporting is on) and what the
@@ -59,6 +61,20 @@ Read this before you raise `?ref=`.
 - Dependabot (`.github/dependabot.yml`): weekly pull requests for the pinned GitHub Actions and for the provider
   constraints in the module and both examples.
 - `main` is protected: changes come through a pull request with all CI checks green, admins included; linear history.
+
+### Changed
+
+- `docs/permissions.md` and the `extra_graph_checks` description name the scans of app 0.72.0.0: Stale accounts,
+  MFA coverage, Legacy sign-ins and Risky users are now the Accounts scan, Guest owners and Administrative units are
+  parts of Privileged roles, and Secret expiry and Enterprise apps are the Applications scan. No role or permission
+  changed: the module already grants everything those scans read.
+- The CI link check skips this repo's own compare links: a release's compare link is 404 until its tag exists,
+  and the tag is made after the release pull request has merged.
+
+### Fixed
+
+- Both examples give the scan identity Key Vault Reader next to Reader and Cost Management Reader, the module's
+  default roles since v1.10.0, so the Key Vault item check (on by default) also works from an example.
 
 ## [1.10.0] - 2026-11-04
 
@@ -282,7 +298,8 @@ Read this before you raise `?ref=`.
 - The module at the repo root, split from the app repo, with a root configuration in `examples/default` and
   `docs/permissions.md`.
 
-[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.7.0...v1.8.0

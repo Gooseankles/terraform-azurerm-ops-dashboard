@@ -20,10 +20,10 @@ variable "resource_group_name" {
 }
 
 variable "shared_spn_access" {
-  description = "Scopes where the scan identity gets Azure roles (default Reader and Cost Management Reader)."
+  description = "Scopes where the scan identity gets Azure roles (default Reader, Cost Management Reader and Key Vault Reader)."
   type = list(object({
     scope = string
-    roles = optional(list(string), ["Reader", "Cost Management Reader"])
+    roles = optional(list(string), ["Reader", "Cost Management Reader", "Key Vault Reader"])
   }))
   default = []
 }
