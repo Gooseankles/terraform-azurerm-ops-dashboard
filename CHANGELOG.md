@@ -68,6 +68,8 @@ Read this before you raise `?ref=`.
   MFA coverage, Legacy sign-ins and Risky users are now the Accounts scan, Guest owners and Administrative units are
   parts of Privileged roles, and Secret expiry and Enterprise apps are the Applications scan. No role or permission
   changed: the module already grants everything those scans read.
+- The CI link check skips this repo's own compare links: a release's compare link is 404 until its tag exists,
+  and the tag is made after the release pull request has merged.
 
 ### Fixed
 
