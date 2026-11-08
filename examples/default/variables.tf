@@ -4,7 +4,7 @@ variable "subscription_id" {
 }
 
 variable "scan_scopes" {
-  description = "Old name, kept so existing tfvars keep working: each scope gets Reader and Cost Management Reader, same as a shared_spn_access entry without roles. Use shared_spn_access instead."
+  description = "Old name, kept so existing tfvars keep working: each scope gets Reader, Cost Management Reader and Key Vault Reader, same as a shared_spn_access entry without roles. Use shared_spn_access instead."
   type        = list(string)
   default     = []
 }

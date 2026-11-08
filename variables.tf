@@ -137,9 +137,9 @@ variable "extra_graph_checks" {
     its permission (with grant_graph_permissions; else it is in the graph_request output) and turned on in the home
     tenant (app setting EXTRA_GRAPH_CHECKS). Default: all four. Empty = no extra permission, and the checks are
     turned off (EXTRA_GRAPH_CHECKS=none).
-      risky-users     IdentityRiskyUser.Read.All (Entra ID Protection risky users; needs Entra ID P2)
+      risky-users     IdentityRiskyUser.Read.All (the risky users part of Accounts; needs Entra ID P2)
       secure-score    SecurityEvents.Read.All (Microsoft Secure Score and its improvement actions)
-      admin-units     AdministrativeUnit.Read.All (guest or disabled admins of administrative units)
+      admin-units     AdministrativeUnit.Read.All (the administrative units part of Privileged roles)
       directory-sync  Organization.Read.All (sync from on-premises Active Directory late or stopped)
     Customer tenants are not affected: see customers.extra_graph_checks.
   EOT

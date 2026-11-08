@@ -60,6 +60,18 @@ Read this before you raise `?ref=`.
   constraints in the module and both examples.
 - `main` is protected: changes come through a pull request with all CI checks green, admins included; linear history.
 
+### Changed
+
+- `docs/permissions.md` and the `extra_graph_checks` description name the scans of app 0.72.0.0: Stale accounts,
+  MFA coverage, Legacy sign-ins and Risky users are now the Accounts scan, Guest owners and Administrative units are
+  parts of Privileged roles, and Secret expiry and Enterprise apps are the Applications scan. No role or permission
+  changed: the module already grants everything those scans read.
+
+### Fixed
+
+- Both examples give the scan identity Key Vault Reader next to Reader and Cost Management Reader, the module's
+  default roles since v1.10.0, so the Key Vault item check (on by default) also works from an example.
+
 ## [1.10.0] - 2026-11-04
 
 ### Added
