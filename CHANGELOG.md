@@ -49,6 +49,8 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-11-08
+
 ### Added
 
 - `SECURITY.md`: how to report a vulnerability privately (private vulnerability reporting is on) and what the
@@ -294,7 +296,8 @@ Read this before you raise `?ref=`.
 - The module at the repo root, split from the app repo, with a root configuration in `examples/default` and
   `docs/permissions.md`.
 
-[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.7.0...v1.8.0
