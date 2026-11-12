@@ -22,7 +22,7 @@ variable "sku_name" {
 }
 
 variable "image" {
-  description = "Docker Hub image and tag, or image and digest. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app; @sha256:<digest> pins the exact image bytes."
+  description = "Image and tag, or image and digest. Without a registry host it is a Docker Hub image; with one (ghcr.io/org/app, myregistry.azurecr.io/app) it is pulled from that registry, with registry_username and registry_password when the image is private. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app; @sha256:<digest> pins the exact image bytes."
   type        = string
   default     = "trozity/azure-ops-dashboard:stable"
 
@@ -31,6 +31,19 @@ variable "image" {
     condition     = can(regex("^([A-Za-z0-9.-]+(:[0-9]+)?/)?[a-z0-9]+([._-]+[a-z0-9]+)*(/[a-z0-9]+([._-]+[a-z0-9]+)*)*(:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|@sha256:[0-9a-f]{64})?$", var.image))
     error_message = "image must be repo, repo:tag or repo@sha256:<64 lowercase hex digits> (lowercase repository path, optional registry host, no spaces, not both a tag and a digest)."
   }
+}
+
+variable "registry_username" {
+  description = "User name for a private image registry (the host at the start of image). For GitHub Container Registry: a GitHub user name, with a token that has read:packages as registry_password. Blank = no sign-in (a public image)."
+  type        = string
+  default     = ""
+}
+
+variable "registry_password" {
+  description = "Password or access token for registry_username. It is kept in the Terraform state and in the web app's settings (DOCKER_REGISTRY_SERVER_PASSWORD), so use a token that can only read the image, and keep the state private. Blank = no sign-in."
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "continuous_deployment" {

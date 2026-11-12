@@ -8,6 +8,7 @@ location        = "norwayeast"
 # resource_group_name = ""                                   # blank = rg-<name>
 # sku_name            = "B1"                                 # App Service plan size; B1 is enough
 # image               = "trozity/azure-ops-dashboard:stable" # :latest for every push, or pin a version, e.g. :<version from VERSION>
+# registry_username   = ""                                   # only for a private registry, e.g. image = "ghcr.io/<org>/<repo>@sha256:..."; the token goes in TF_VAR_registry_password
 # tags                = { Owner = "it-ops" }
 
 # --- Scan identity (the web app's own identity, the shared SPN) ---

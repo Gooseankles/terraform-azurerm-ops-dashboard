@@ -9,6 +9,8 @@ module "dashboard" {
   resource_group_name   = var.resource_group_name
   sku_name              = var.sku_name
   image                 = var.image
+  registry_username     = var.registry_username
+  registry_password     = var.registry_password
   continuous_deployment = var.continuous_deployment
   shared_spn_access = concat(
     var.shared_spn_access,
