@@ -49,6 +49,17 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+### Added
+
+- `registry_username` and `registry_password`: sign in to a private image registry, for example a copy of the
+  image in GitHub Container Registry. Both or neither; blank means a public image, as before. The password is kept
+  in the state and in the web app's settings. README, An image in another registry.
+
+### Fixed
+
+- `image` with a registry host (`ghcr.io/org/app`, `myregistry.azurecr.io/app`) is pulled from that registry. It
+  was always sent to Docker Hub, so such an image could not be pulled. Docker Hub images are not affected.
+
 ## [1.10.1] - 2026-11-08
 
 ### Added

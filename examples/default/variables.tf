@@ -32,9 +32,22 @@ variable "sku_name" {
 }
 
 variable "image" {
-  description = "Docker Hub image and tag."
+  description = "Image and tag (or digest). Without a registry host it is a Docker Hub image."
   type        = string
   default     = "trozity/azure-ops-dashboard:stable"
+}
+
+variable "registry_username" {
+  description = "User name for a private image registry. Blank = no sign-in (a public image)."
+  type        = string
+  default     = ""
+}
+
+variable "registry_password" {
+  description = "Password or read-only token for registry_username. Kept in the state; give it as TF_VAR_registry_password, not in a committed file."
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "continuous_deployment" {

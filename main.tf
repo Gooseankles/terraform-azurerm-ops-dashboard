@@ -8,6 +8,13 @@ locals {
   image_last = element(split("/", var.image), length(split("/", var.image)) - 1)
   image_ref  = strcontains(var.image, "@") || strcontains(local.image_last, ":") ? var.image : "${var.image}:latest"
 
+  # Docker's own rule: a first path part with a dot or a port, or "localhost", is a registry host
+  # (ghcr.io/org/app, myregistry.azurecr.io/app). Without one the image is on Docker Hub. App Service takes the
+  # registry and the image name apart, so the host is cut off the name.
+  image_parts    = split("/", var.image)
+  image_registry = length(local.image_parts) > 1 && (strcontains(local.image_parts[0], ".") || strcontains(local.image_parts[0], ":") || local.image_parts[0] == "localhost") ? local.image_parts[0] : ""
+  image_name     = local.image_registry != "" ? trimprefix(local.image_ref, "${local.image_registry}/") : local.image_ref
+
   # A bare address becomes a /32 (or /128 for IPv6).
   allowed_ip_ranges = [for ip in var.allowed_ip_ranges : strcontains(ip, "/") ? ip : (strcontains(ip, ":") ? "${ip}/128" : "${ip}/32")]
   # Allowed IPs or subnets, or app_private_endpoint: the site refuses every other network (public access stays on).
@@ -117,8 +124,11 @@ resource "azurerm_linux_web_app" "this" {
     }
 
     application_stack {
-      docker_registry_url = "https://index.docker.io"
-      docker_image_name   = local.image_ref
+      docker_registry_url = local.image_registry != "" ? "https://${local.image_registry}" : "https://index.docker.io"
+      docker_image_name   = local.image_name
+      # Blank = pull without signing in (a public image).
+      docker_registry_username = var.registry_username != "" ? var.registry_username : null
+      docker_registry_password = var.registry_password != "" ? var.registry_password : null
     }
   }
 
@@ -160,6 +170,10 @@ resource "azurerm_linux_web_app" "this" {
   }
 
   lifecycle {
+    precondition {
+      condition     = (var.registry_username == "") == (nonsensitive(var.registry_password) == "")
+      error_message = "registry_username and registry_password go together: set both for a private registry, or neither for a public image."
+    }
     precondition {
       condition     = !var.app_private_endpoint || var.private_network
       error_message = "app_private_endpoint needs private_network = true (the endpoint sits in that VNet)."
