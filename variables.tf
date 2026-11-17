@@ -22,9 +22,9 @@ variable "sku_name" {
 }
 
 variable "image" {
-  description = "Image and tag, or image and digest. Without a registry host it is a Docker Hub image; with one (ghcr.io/org/app, myregistry.azurecr.io/app) it is pulled from that registry, with registry_username and registry_password when the image is private. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app; @sha256:<digest> pins the exact image bytes."
+  description = "Container image: [registry-host/]repository with a tag or a digest. The default is :latest from the Vivicta registry (containers.vivicta.ghe.com), which is every push to main. To pin the app, set a version tag (e.g. :0.72.0.1) or, for production, @sha256:<digest> from the build's run summary (the exact image bytes). A first part with a dot or port is the registry host; without one the image comes from Docker Hub."
   type        = string
-  default     = "trozity/azure-ops-dashboard:stable"
+  default     = "containers.vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard:latest"
 
   # An optional registry host (with a port), a lowercase repository path, then a tag or a digest (not both).
   validation {
@@ -34,28 +34,63 @@ variable "image" {
 }
 
 variable "registry_username" {
-  description = "User name for a private image registry (the host at the start of image). For GitHub Container Registry: a GitHub user name, with a token that has read:packages as registry_password. Blank = no sign-in (a public image)."
+  description = "Username App Service pulls the image with. Needed for a private registry such as containers.vivicta.ghe.com (your exact login handle on vivicta.ghe.com). Blank = anonymous pull (Docker Hub, or a public package)."
   type        = string
   default     = ""
 }
 
 variable "registry_password" {
-  description = "Password or access token for registry_username. It is kept in the Terraform state and in the web app's settings (DOCKER_REGISTRY_SERVER_PASSWORD), so use a token that can only read the image, and keep the state private. Blank = no sign-in."
+  description = "Token App Service pulls the image with: a classic personal access token with only read:packages, authorized for SSO. A literal value ends up in the Terraform state; prefer registry_password_secret_name, which keeps the token in Key Vault. A ready-made @Microsoft.KeyVault(SecretUri=...) reference also works here (then you grant the web app's identity access to the secret yourself). Needs registry_username; not together with registry_password_secret_name."
   type        = string
   default     = ""
   sensitive   = true
+
+  validation {
+    condition     = var.registry_password == "" || var.registry_username != ""
+    error_message = "registry_password needs registry_username."
+  }
+}
+
+variable "registry_password_secret_name" {
+  description = "Name of a Key Vault secret that holds the registry token (see registry_password for the token type). The module builds the Key Vault reference and, with manage_access, gives the web app's identity Key Vault Secrets User on that one secret, so the token never enters the Terraform state. The vault is registry_key_vault_id, or blank = the vault this module creates (create_secret_vault); then add the secret there after the first apply and restart the app. Needs registry_username."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.registry_password_secret_name == "" || can(regex("^[A-Za-z0-9-]{1,127}$", var.registry_password_secret_name))
+    error_message = "registry_password_secret_name must be 1-127 letters, digits and dashes (a Key Vault secret name)."
+  }
+  validation {
+    condition     = var.registry_password_secret_name == "" || var.registry_username != ""
+    error_message = "registry_password_secret_name needs registry_username."
+  }
+  validation {
+    condition     = var.registry_password_secret_name == "" || var.registry_password == ""
+    error_message = "Use either registry_password or registry_password_secret_name, not both."
+  }
+}
+
+variable "registry_key_vault_id" {
+  description = "Resource ID of an existing key vault that holds the registry token secret (registry_password_secret_name), for example a vault your team already uses. Blank = the vault this module creates. The vault must use Azure RBAC for access and let the web app reach it (its firewall must allow the app's network)."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.registry_key_vault_id == "" || can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.KeyVault/vaults/[^/]+$", var.registry_key_vault_id))
+    error_message = "registry_key_vault_id must be a key vault resource ID: /subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<name>."
+  }
 }
 
 variable "continuous_deployment" {
-  description = "Let the dashboard repo's Promote to stable workflow restart this app, so it pulls the new :stable at once: makes a user-assigned identity id-<name>-deploy that trusts GitHub's OIDC token (deploy_github_subject) and may only read and restart this web app (output stable_deployment). No publishing password; basic authentication stays off. false = the app pulls only on restart or image change."
+  description = "Let a GitHub Actions deploy job restart this app so it pulls its image again: makes a user-assigned identity id-<name>-deploy that trusts GitHub's OIDC token (deploy_github_subject) and may only read and restart this web app (output stable_deployment). No publishing password; basic authentication stays off. false (default) = the app pulls only on restart or image change; the dashboard repo ships no deploy workflow, so change image and apply instead."
   type        = bool
   default     = false
 }
 
 variable "deploy_github_subject" {
-  description = "With continuous_deployment: the GitHub OIDC subject the deploy identity trusts, exactly (no wildcards). The default is the dashboard repo's \"stable\" environment, which the Promote to stable workflow's restart job uses; for a fork use repo:<owner>/<repo>:environment:stable."
+  description = "With continuous_deployment: the GitHub OIDC subject the deploy identity trusts, exactly (no wildcards). The default is the dashboard repo's \"production\" environment on vivicta.ghe.com; use repo:<owner>/<repo>:environment:<name> for another repo or environment."
   type        = string
-  default     = "repo:Gooseankles/cirrus-watch:environment:stable"
+  default     = "repo:vivicta-public-cloud/cirrus-ops-dashboard:environment:production"
 
   validation {
     condition     = can(regex("^repo:[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+:.+$", var.deploy_github_subject))

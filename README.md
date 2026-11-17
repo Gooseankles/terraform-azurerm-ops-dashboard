@@ -1,17 +1,17 @@
 # Cirrus Watch: Terraform module
 
-Deploys [Cirrus Watch](https://hub.docker.com/r/trozity/azure-ops-dashboard) (a self-hosted dashboard of
+Deploys [Cirrus Watch](https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard) (a self-hosted dashboard of
 read-only Azure and Entra ID tenant checks) to Azure App Service. The module is the root of this repo;
 [examples/default](examples/default) is a ready-made root configuration that calls it, or call it from your own
 configuration (see [Use the module](#use-the-module)).
 It needs Terraform 1.6 or newer and azurerm 5.x (azuread 3.x, random 3.x).
 
 How the pieces are wired and what happens at start-up, sign-in and a scan is in the dashboard's
-[setup low-level design](https://github.com/Gooseankles/cirrus-watch/blob/main/docs/lld-setup.md); day-to-day running in its [operations guide](https://github.com/Gooseankles/cirrus-watch/blob/main/docs/operations.md).
+[setup low-level design](https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard/blob/main/docs/lld-setup.md); day-to-day running in its [operations guide](https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard/blob/main/docs/operations.md).
 
 One `apply` creates:
 
-- Resource group, Linux App Service plan (B1) and the web app running `trozity/azure-ops-dashboard:stable`
+- Resource group, Linux App Service plan (B1) and the web app running the `image` from the Vivicta container registry
   (port 7070, `/home/data` storage, Always On, HTTPS only, random session secret).
 - **Shared SPN**: the web app's system-assigned identity, used by every tool that has no SPN override in Settings.
   `shared_spn_access` says where it gets access and with which roles (default Reader and Cost Management Reader,
@@ -70,7 +70,7 @@ the user's own browser. Empty lists (the default) leave the site open to the int
 ## Customer tenants
 
 Leave `customers` out to watch only your own tenant: no customer containers, roles or groups are made, and
-customers can be added later without rebuilding anything ([single tenant or several](https://github.com/Gooseankles/cirrus-watch/blob/main/docs/hld.md#single-tenant-or-several)).
+customers can be added later without rebuilding anything ([single tenant or several](https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard/blob/main/docs/hld.md#single-tenant-or-several)).
 
 ```hcl
 customers = {
@@ -136,7 +136,7 @@ members and assignments). Set `role_group_prefix = "Azure tools dashboard (<name
 So each team sees only its own scans, `area_roles` creates an `<Area>.Read` app role over every tenant, and a
 customer's `area_roles` creates `<Area>.Read-<key>` for that tenant. Areas are `identity`, `platform`, `security` and
 `cost`; which scans each holds is in the dashboard's
-[sign-in and roles guide](https://github.com/Gooseankles/cirrus-watch/blob/main/docs/guides/sign-in-and-roles.md#roles). Whoever may see a scan may also run it and accept its
+[sign-in and roles guide](https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard/blob/main/docs/guides/sign-in-and-roles.md#roles). Whoever may see a scan may also run it and accept its
 findings, so there are no Run roles (since v1.5.0; `run_members` still works and joins the Read role, and the old
 `.Run` roles and their groups are removed at the next apply). An area only gets a role (and group) when listed;
 members may be empty and added to the group later.
@@ -406,7 +406,7 @@ provider "azurerm" {
 }
 
 module "dashboard" {
-  source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.10.1"
+  source = "git::https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module.git?ref=v1.10.1"
 
   name     = "contoso-azure-tools"
   location = "norwayeast"
@@ -423,65 +423,94 @@ output "url" {
 ```
 
 `?ref=` picks the module version. Every release has a git tag `v<major>.<minor>.<patch>` (see the repo's tags), so
-pin one and raise it when you choose to upgrade; `?ref=main` follows every push. The tag pins the infrastructure only: the app
-image is the `image` input (default `trozity/azure-ops-dashboard:stable`, promoted by hand once a build has proven
-itself); set it to `:latest` for every push, or to a version such as `:0.55.0.0` to pin the app. Every input and
-output is listed under [Reference](#reference); what changed between versions is in [CHANGELOG.md](CHANGELOG.md).
+pin one and raise it when you choose to upgrade; `?ref=main` follows every push. The tag pins the infrastructure
+only: the app image is the `image` input. Every input and output is listed under [Reference](#reference); what
+changed between versions is in [CHANGELOG.md](CHANGELOG.md).
 
-A tag can be moved to other image bytes; a digest cannot. To pin the exact image, give `image` its digest instead
-of a tag: `image = "trozity/azure-ops-dashboard@sha256:<64 hex digits>"` (the module passes `repo:tag` and
-`repo@sha256:<digest>` to App Service as given and refuses any other form). Find the digest of a version with
+## The container image
 
-```sh
-docker buildx imagetools inspect trozity/azure-ops-dashboard:0.64.0.0
+The image comes from the Vivicta container registry, built by the dashboard repo's **Docker image** workflow
+(`vivicta-public-cloud/cirrus-ops-dashboard`). The default is
+
+```text
+containers.vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard:latest
 ```
 
-and use the `Digest:` line at the top (the image index, which holds the image and its attestations).
-The same command with `--format '{{ json .SBOM }}'` or `--format '{{ json .Provenance }}'` shows the image's SBOM and
-build provenance (app 0.64.1.0 and newer carry an SBOM). A digest never moves, so `continuous_deployment` does
-nothing for it: change `image` to update.
+`:latest` is every push to `main`. To pin the app, set `image` to a version tag (`...:0.72.0.1`) or, for
+production, to the digest the build prints in its run summary (`...@sha256:<64 hex digits>`). A tag can be moved to
+other image bytes; a digest cannot. The module passes `repo:tag` and `repo@sha256:<digest>` to App Service as given
+and refuses any other form.
 
-### An image in another registry
+The module takes the registry host from the first part of `image` when it has a dot or a port, and gives App Service
+the host and the image name apart. An image with no host (for example `trozity/azure-ops-dashboard:0.72.0.0`) comes
+from Docker Hub.
 
-Without a registry host, `image` is a Docker Hub image. Put the host first to pull from another registry, for
-example `image = "ghcr.io/<org>/<repo>@sha256:<digest>"` for a copy you build yourself. For a private image, also
-set `registry_username` and `registry_password` (both or neither). For GitHub Container Registry that is a GitHub
-user name and a token that can only read packages (`read:packages`).
+### Registry access
 
-The password is kept in the Terraform state and in the web app's settings, like any App Service registry
-password. Give it as `TF_VAR_registry_password`, not in a committed file, keep the state private, and replace the
-token before it expires: the app cannot pull a new image with an expired one.
+The package is private, so App Service must sign in to pull it. It cannot use a managed identity for this registry,
+so it uses a username and a token:
 
-### Check the image signature before you pin it
+1. On `vivicta.ghe.com` create a **classic** personal access token with only `read:packages` (fine-grained tokens do
+2. Put the token in a Key Vault secret, by hand in the portal or with `az keyvault secret set`. Terraform never writes
+   it, so it stays out of the state, and it never goes in a `.tf` file or in version control.
+3. Tell the module the username and the secret's name. Which vault holds the secret is your choice:
 
-Images built after 0.64.1.0 are signed with Sigstore cosign, keyless: the signature says the image was built by the
-dashboard repo's `docker.yml` workflow on GitHub, and it is logged in the public Rekor transparency log. App Service
-does not check signatures itself, so check the digest before you put it in `image`
-([cosign](https://docs.sigstore.dev/cosign/system_config/installation/) 3 or newer needed; cosign 2 reports "no
-signatures found"):
+```hcl
+module "dashboard" {
+  source = "git::https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module.git?ref=v1.10.1"
+  # ...
 
-```sh
-cosign verify trozity/azure-ops-dashboard@sha256:<digest> \
-  --certificate-identity-regexp '^https://github\.com/Gooseankles/cirrus-watch/\.github/workflows/docker\.yml@refs/(heads/main|tags/v.+)$' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+  registry_username             = "your-handle" # your exact login handle on vivicta.ghe.com
+  registry_password_secret_name = "registry-pat" # the Key Vault secret that holds the token
+
+  # Where the secret is. Leave out to use the vault this module creates (create_secret_vault); to use a vault you
+  # already have, give its resource ID:
+  # registry_key_vault_id = "/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<name>"
+}
 ```
 
-It prints the signature details when it holds and fails otherwise. `:stable` is checked the same way by the
-**Promote to stable** workflow before it moves the tag, so following `:stable` gets a checked image too (0.64.1.0
-and older have no signature and cannot be promoted any more).
+- **The module's own vault (default).** On the first deployment the vault does not exist yet, so apply once, add the
+  secret to the new vault (`terraform output secret_vault_uri` shows it), then restart the web app. Until the secret is
+  there, the app cannot pull its image and shows an unresolved Key Vault reference. The web app's identity already
+  has Key Vault Secrets Officer on this vault.
+- **An existing vault (`registry_key_vault_id`).** Add the secret there before you apply and the app starts at once.
+  With `manage_access` the module gives the web app's identity **Key Vault Secrets User** on that one secret only
+  (not the vault); without it, grant it yourself to `web_app_principal_id`. The vault must use Azure RBAC and let the
+  web app reach it, so check its firewall and, with a private network, its service endpoint or private endpoint.
+
+The module builds the Key Vault reference (`@Microsoft.KeyVault(SecretUri=...)`) for you; `registry_password` is only
+for a literal token (stored in the state file) or a reference you wrote yourself, and not together with
+`registry_password_secret_name`.
+
+Check the token without Docker before you apply: a `GET` of the image's manifest at
+`https://containers.vivicta.ghe.com/v2/vivicta-public-cloud/cirrus-ops-dashboard/manifests/<tag>` with the header
+`Authorization: Bearer <base64 of the token>` answers `200` when the token can read it (`401` or `403`: the token or its
+SSO authorization is wrong; `404`: the name or tag is wrong). The dashboard repo's
+[deployment guide](https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard/blob/main/docs/guides/deploy-to-app-service.md)
+has a PowerShell version.
+
+If App Service shows `ImagePullUnauthorizedFailure`, check, in order: the image name and tag (copy them from the
+package page; one wrong character looks like a permission error), the token's SSO authorization, and that the three
+`DOCKER_REGISTRY_SERVER_*` app settings exist (the module sets them from `registry_username` and `registry_password`).
+
+The images are not signed. The build checks that every tag it pushes names one digest and prints it; deploy that
+digest, not a tag, in production, and promote the same digest from a test app. To roll back, set the previous digest and
+apply. A digest never moves, so `continuous_deployment` does nothing for it.
 
 ## Continuous deployment
 
-With `continuous_deployment = true` the dashboard repo's **Promote to stable** workflow restarts this app right
-after it moves `:stable`, and App Service pulls the image again on every restart, so the new stable runs at once
-instead of at the next restart. No password is involved:
+With `continuous_deployment = true` the module prepares a way for a GitHub Actions job to restart this app, which makes
+App Service pull the image again (useful for a moved tag such as `:latest`). The dashboard repo ships no deploy
+workflow, so you add the job yourself, or leave this off and change `image` and apply instead. No password is
+involved:
 
 - The module makes a user-assigned identity `id-<name>-deploy` with a federated credential that trusts GitHub's
   OIDC token (issuer `https://token.actions.githubusercontent.com`, audience `api://AzureADTokenExchange`) for one
-  subject only, `deploy_github_subject`. The default, `repo:Gooseankles/cirrus-watch:environment:stable`, is the
-  workflow's `restart` job, which runs in the GitHub environment `stable`. An environment rather than a branch: the
-  repo owner can limit that environment to `main` and add reviewers, and a pull request run never gets that subject.
-  For a fork, set your own `repo:<owner>/<repo>:environment:stable`.
+  subject only, `deploy_github_subject`. The default,
+  `repo:vivicta-public-cloud/cirrus-ops-dashboard:environment:production`, is a job in the GitHub environment
+  `production`. An environment rather than a branch: the repo owner can limit that environment to `main` and add
+  reviewers, and a pull request run never gets that subject. Check how your GitHub Enterprise issues the subject
+  before relying on it.
 - The identity gets one custom role, `Cirrus Watch deploy (<name>)`, on this web app only: read it and restart it
   (`Microsoft.Web/sites/read`, `Microsoft.Web/sites/restart/action`). The built-in Website Contributor would also let
   it read the app settings (the session secret, the admin password) and change them. Creating the custom role needs
@@ -492,15 +521,8 @@ instead of at the next restart. No password is involved:
   (`management.azure.com`), so it works with `allowed_ip_ranges`, `app_private_endpoint` and
   `public_network_access = false` too.
 
-To connect the app to the workflow:
-
-1. `terraform apply`, then `terraform output -json stable_deployment` (client ID, tenant ID, subscription ID,
-   resource group and site name; IDs, not secrets).
-2. In the dashboard repo, add it to the Actions variable `STABLE_DEPLOYMENTS`, a JSON list with one entry per app:
-   `[{"clientId":"…","tenantId":"…","subscriptionId":"…","resourceGroup":"rg-contoso-ops","name":"contoso-ops"}]`.
-
-The workflow skips the restart when the variable is empty. Without `continuous_deployment`, restart the app by hand
-after promoting.
+After `terraform apply`, `terraform output -json stable_deployment` gives the client ID, tenant ID, subscription ID,
+resource group and site name for the job's `azure/login` step (IDs, not secrets).
 
 ## Policy check
 
@@ -566,20 +588,20 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_app_private_endpoint"></a> [app\_private\_endpoint](#input\_app\_private\_endpoint) | Give the web app itself an inbound private endpoint in the VNet. Public network access stays on, but the access<br/>restrictions deny every network except allowed\_ip\_ranges and allowed\_subnet\_ids (the scm site too). Needs private\_network = true. People then need a<br/>network path to the VNet (VPN, ExpressRoute, peering) and DNS that resolves privatelink.azurewebsites.net (the<br/>zone is created and linked to the VNet unless app\_private\_dns\_zone\_id is set). | `bool` | `false` | no |
 | <a name="input_area_roles"></a> [area\_roles](#input\_area\_roles) | Area roles over every tenant, keyed by area: identity, platform, security or cost. Each listed area creates<br/>the app role `<Area>.Read` (see, run and accept findings of that area's scans), for example Security.Read;<br/>read\_members get it (object IDs, as group members with create\_role\_groups). run\_members is deprecated: there<br/>are no Run roles any more (whoever may see a scan may run it) and its members join read\_members. Per-customer area roles are in customers.area\_roles. Which scans each area holds is in the<br/>dashboard's docs/guides/sign-in-and-roles.md. | <pre>map(object({<br/>    read_members = optional(list(string), [])<br/>    run_members  = optional(list(string), [])<br/>  }))</pre> | `{}` | no |
 | <a name="input_blob_private_dns_zone_id"></a> [blob\_private\_dns\_zone\_id](#input\_blob\_private\_dns\_zone\_id) | Existing privatelink.blob.core.windows.net private DNS zone (e.g. in a hub), already linked to the VNet. Blank = create one and link it to the VNet. | `string` | `""` | no |
-| <a name="input_continuous_deployment"></a> [continuous\_deployment](#input\_continuous\_deployment) | Let the dashboard repo's Promote to stable workflow restart this app, so it pulls the new :stable at once: makes a user-assigned identity id-<name>-deploy that trusts GitHub's OIDC token (deploy\_github\_subject) and may only read and restart this web app (output stable\_deployment). No publishing password; basic authentication stays off. false = the app pulls only on restart or image change. | `bool` | `false` | no |
+| <a name="input_continuous_deployment"></a> [continuous\_deployment](#input\_continuous\_deployment) | Let a GitHub Actions deploy job restart this app so it pulls its image again: makes a user-assigned identity id-<name>-deploy that trusts GitHub's OIDC token (deploy\_github\_subject) and may only read and restart this web app (output stable\_deployment). No publishing password; basic authentication stays off. false (default) = the app pulls only on restart or image change; the dashboard repo ships no deploy workflow, so change image and apply instead. | `bool` | `false` | no |
 | <a name="input_create_history_storage"></a> [create\_history\_storage](#input\_create\_history\_storage) | Create a storage account for scan results and run history (reached with the web app's managed identity, no keys). false = keep them on the app's own disk. | `bool` | `true` | no |
 | <a name="input_create_role_groups"></a> [create\_role\_groups](#input\_create\_role\_groups) | Create an Entra security group per dashboard role (Admin, User, `Admin-<key>`, `User-<key>`, area roles) and assign it to that<br/>app role, so people get access by group membership and can be in several customers' groups. admin\_principal\_ids,<br/>user\_principal\_ids and each customer's admin\_members / user\_members become group members. Assigning groups to app<br/>roles needs Microsoft Entra ID P1 or P2, and members must be users (nested groups do not count). false = assign<br/>the people to the roles directly. | `bool` | `true` | no |
 | <a name="input_create_secret_vault"></a> [create\_secret\_vault](#input\_create\_secret\_vault) | Create a key vault for the client secrets entered in Settings (SPN overrides, customer tenants); the web app reads and writes it with its managed identity. false = those secrets stay in files on the app's own disk. | `bool` | `true` | no |
 | <a name="input_create_sso_app"></a> [create\_sso\_app](#input\_create\_sso\_app) | true = Terraform creates the sign-in app registration. false = the app registration comes from your own<br/>request process: set sso\_app\_client\_id (and sso\_client\_secret if the team hands out a secret instead of adding<br/>the federated credential); the output sso\_app\_request lists everything to ask them for. | `bool` | `true` | no |
 | <a name="input_customers"></a> [customers](#input\_customers) | Customer tenants the dashboard scans besides its own, keyed by a short customer key (lowercase letters, digits,<br/>- or \_; it names the app roles `Admin-<key>`, `User-<key>` and `<Area>.Read-<key>`, the Entra<br/>groups and the storage container).<br/>  name             shown in the tenant tabs<br/>  tenant\_id        the customer's Entra tenant ID<br/>  client\_id        the app registration made in that tenant (see the customer\_onboarding output). Empty until<br/>                   it exists; it can also be set in the app's Settings. Its client secret is entered only in<br/>                   the app's Settings, so it never lands in the Terraform state.<br/>  subscription\_ids limit the scans to these subscriptions (empty = every one the app can see there)<br/>  enabled          false = keep the customer but stop scanning it<br/>  admin\_members    object IDs of users who get `Admin-<key>` (this customer, every area)<br/>  user\_members     object IDs of users who get `User-<key>` (this customer, every area; same access as `Admin-<key>`)<br/>  area\_roles       per area (identity, platform, security, cost): creates `<Area>.Read-<key>` for this<br/>                   customer (read, run and accept findings); read\_members get it (run\_members is<br/>                   deprecated and joins read\_members)<br/>  extra\_graph\_checks extra checks this customer grants (same values as extra\_graph\_checks; default all four):<br/>                   only adds their permissions to the customer\_onboarding steps. The dashboard runs every<br/>                   extra check in a customer tenant unless that tenant's Settings tab turns them off (none).<br/>Terraform never touches a customer tenant: the app registration and its permissions are made there by hand. | <pre>map(object({<br/>    name               = string<br/>    tenant_id          = string<br/>    subscription_ids   = optional(list(string), [])<br/>    client_id          = optional(string, "")<br/>    enabled            = optional(bool, true)<br/>    admin_members      = optional(list(string), [])<br/>    user_members       = optional(list(string), [])<br/>    extra_graph_checks = optional(list(string), ["risky-users", "secure-score", "admin-units", "directory-sync"])<br/>    area_roles = optional(map(object({<br/>      read_members = optional(list(string), [])<br/>      run_members  = optional(list(string), [])<br/>    })), {})<br/>  }))</pre> | `{}` | no |
-| <a name="input_deploy_github_subject"></a> [deploy\_github\_subject](#input\_deploy\_github\_subject) | With continuous\_deployment: the GitHub OIDC subject the deploy identity trusts, exactly (no wildcards). The default is the dashboard repo's "stable" environment, which the Promote to stable workflow's restart job uses; for a fork use repo:<owner>/<repo>:environment:stable. | `string` | `"repo:Gooseankles/cirrus-watch:environment:stable"` | no |
+| <a name="input_deploy_github_subject"></a> [deploy\_github\_subject](#input\_deploy\_github\_subject) | With continuous\_deployment: the GitHub OIDC subject the deploy identity trusts, exactly (no wildcards). The default is the dashboard repo's "production" environment on vivicta.ghe.com; use repo:<owner>/<repo>:environment:<name> for another repo or environment. | `string` | `"repo:vivicta-public-cloud/cirrus-ops-dashboard:environment:production"` | no |
 | <a name="input_extra_app_settings"></a> [extra\_app\_settings](#input\_extra\_app\_settings) | Extra app settings, e.g. AZURE\_REQUIRED\_TAGS. | `map(string)` | `{}` | no |
 | <a name="input_extra_graph_checks"></a> [extra\_graph\_checks](#input\_extra\_graph\_checks) | Dashboard checks that need Graph application permissions beyond graph\_permissions. Each one listed is granted<br/>its permission (with grant\_graph\_permissions; else it is in the graph\_request output) and turned on in the home<br/>tenant (app setting EXTRA\_GRAPH\_CHECKS). Default: all four. Empty = no extra permission, and the checks are<br/>turned off (EXTRA\_GRAPH\_CHECKS=none).<br/>  risky-users     IdentityRiskyUser.Read.All (the risky users part of Accounts; needs Entra ID P2)<br/>  secure-score    SecurityEvents.Read.All (Microsoft Secure Score and its improvement actions)<br/>  admin-units     AdministrativeUnit.Read.All (the administrative units part of Privileged roles)<br/>  directory-sync  Organization.Read.All (sync from on-premises Active Directory late or stopped)<br/>Customer tenants are not affected: see customers.extra\_graph\_checks. | `list(string)` | <pre>[<br/>  "risky-users",<br/>  "secure-score",<br/>  "admin-units",<br/>  "directory-sync"<br/>]</pre> | no |
 | <a name="input_grant_graph_permissions"></a> [grant\_graph\_permissions](#input\_grant\_graph\_permissions) | Give the system-assigned identity the Microsoft Graph application permissions the tools use (user and group<br/>names, group members, app registration secrets, access packages). Needs a Privileged Role Administrator or<br/>Global Administrator running terraform. | `bool` | `true` | no |
 | <a name="input_grant_sso_consent"></a> [grant\_sso\_consent](#input\_grant\_sso\_consent) | Grant tenant-wide admin consent for the sign-in app's delegated permissions (openid, profile), so tenants that<br/>do not let users consent themselves do not show "Need admin approval" at sign-in. Only with create\_sso\_app =<br/>true. A service principal running terraform (a pipeline) needs the Microsoft Graph application permission<br/>DelegatedPermissionGrant.ReadWrite.All; a person needs Application Administrator or Global Administrator.<br/>false = an admin clicks "Grant admin consent" on the Enterprise app's Permissions page instead. | `bool` | `true` | no |
 | <a name="input_graph_permissions"></a> [graph\_permissions](#input\_graph\_permissions) | Microsoft Graph application permissions for the system-assigned identity. | `list(string)` | <pre>[<br/>  "User.Read.All",<br/>  "GroupMember.Read.All",<br/>  "Application.Read.All",<br/>  "EntitlementManagement.Read.All",<br/>  "RoleManagement.Read.Directory",<br/>  "AuditLog.Read.All",<br/>  "Policy.Read.All",<br/>  "DelegatedPermissionGrant.Read.All",<br/>  "LicenseAssignment.Read.All",<br/>  "PrivilegedEligibilitySchedule.Read.AzureADGroup",<br/>  "PrivilegedAssignmentSchedule.Read.AzureADGroup"<br/>]</pre> | no |
 | <a name="input_history_retention_days"></a> [history\_retention\_days](#input\_history\_retention\_days) | How many days of run history the dashboard keeps. | `number` | `730` | no |
-| <a name="input_image"></a> [image](#input\_image) | Image and tag, or image and digest. Without a registry host it is a Docker Hub image; with one (ghcr.io/org/app, myregistry.azurecr.io/app) it is pulled from that registry, with registry\_username and registry\_password when the image is private. :stable is promoted by hand once a build has proven itself; :latest is every push to main; a version (e.g. :0.55.0.0) pins the app; @sha256:<digest> pins the exact image bytes. | `string` | `"trozity/azure-ops-dashboard:stable"` | no |
+| <a name="input_image"></a> [image](#input\_image) | Container image: [registry-host/]repository with a tag or a digest. The default is :latest from the Vivicta registry (containers.vivicta.ghe.com), which is every push to main. To pin the app, set a version tag (e.g. :0.72.0.1) or, for production, @sha256:<digest> from the build's run summary (the exact image bytes). A first part with a dot or port is the registry host; without one the image comes from Docker Hub. | `string` | `"containers.vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard:latest"` | no |
 | <a name="input_location"></a> [location](#input\_location) | Azure region. | `string` | `"norwayeast"` | no |
 | <a name="input_log_analytics_workspace_id"></a> [log\_analytics\_workspace\_id](#input\_log\_analytics\_workspace\_id) | Resource ID of a Log Analytics workspace (/subscriptions/<id>/resourceGroups/<rg>/providers/<br/>Microsoft.OperationalInsights/workspaces/<name>) that gets resource logs from the web app (HTTP, console,<br/>audit and platform logs), the secret vault (audit) and the history storage account's blobs (writes and<br/>deletes), as the Azure security baselines recommend. No metrics are sent. null (default) = no diagnostic<br/>settings. Ingestion is billed per GB (Analytics tables; Basic tables cost less but are not set here) plus<br/>retention beyond the free days; the web app's HTTP logs (one row per request) are usually most of it. | `string` | `null` | no |
 | <a name="input_manage_access"></a> [manage\_access](#input\_manage\_access) | true: Terraform also grants the access it creates identities for: Azure role assignments (shared\_spn\_access,<br/>history storage, secret vault, deploy role), the Graph application permissions, sign-in app consent and who may<br/>sign in. false: only the resources and identities are created, nothing is granted (grant\_graph\_permissions and<br/>grant\_sso\_consent are then ignored), and the access\_request output lists every grant for an admin to add by<br/>hand. Applying then needs no Owner or User Access Administrator, and no Entra role for the Graph permissions or<br/>consent; Application Administrator (create\_sso\_app) and Groups Administrator (create\_role\_groups) are still<br/>needed for what is created. | `bool` | `true` | no |
@@ -587,8 +609,10 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | Existing subnet for the private endpoints (storage and secret vault with private\_access = "private\_endpoint", the web app with app\_private\_endpoint). Not needed otherwise. | `string` | `""` | no |
 | <a name="input_private_network"></a> [private\_network](#input\_private\_network) | Join the web app to a virtual network (VNet integration) and let only its subnet reach the history storage<br/>account and the secret vault: their firewalls deny all other networks and let in the integration subnet through<br/>service endpoints (no extra cost). private\_access = "private\_endpoint" uses private endpoints instead (they cost<br/>money). Without existing subnets a small VNet is created (vnet\_address\_space). | `bool` | `false` | no |
 | <a name="input_public_network_access"></a> [public\_network\_access](#input\_public\_network\_access) | Keep public network access on for resources reached through a private endpoint, restricted by their firewalls<br/>and access restrictions (default). false = turn it off on the history storage account and the secret vault<br/>(with private\_access = "private\_endpoint") and on the web app (with app\_private\_endpoint), so only the private<br/>endpoints work. That can block deployments that do not run inside the VNet. Needs private\_network = true and<br/>a private endpoint. | `bool` | `true` | no |
-| <a name="input_registry_password"></a> [registry\_password](#input\_registry\_password) | Password or access token for registry\_username. It is kept in the Terraform state and in the web app's settings (DOCKER\_REGISTRY\_SERVER\_PASSWORD), so use a token that can only read the image, and keep the state private. Blank = no sign-in. | `string` | `""` | no |
-| <a name="input_registry_username"></a> [registry\_username](#input\_registry\_username) | User name for a private image registry (the host at the start of image). For GitHub Container Registry: a GitHub user name, with a token that has read:packages as registry\_password. Blank = no sign-in (a public image). | `string` | `""` | no |
+| <a name="input_registry_key_vault_id"></a> [registry\_key\_vault\_id](#input\_registry\_key\_vault\_id) | Resource ID of an existing key vault that holds the registry token secret (registry\_password\_secret\_name), for example a vault your team already uses. Blank = the vault this module creates. The vault must use Azure RBAC for access and let the web app reach it (its firewall must allow the app's network). | `string` | `""` | no |
+| <a name="input_registry_password"></a> [registry\_password](#input\_registry\_password) | Token App Service pulls the image with: a classic personal access token with only read:packages, authorized for SSO. A literal value ends up in the Terraform state; prefer registry\_password\_secret\_name, which keeps the token in Key Vault. A ready-made @Microsoft.KeyVault(SecretUri=...) reference also works here (then you grant the web app's identity access to the secret yourself). Needs registry\_username; not together with registry\_password\_secret\_name. | `string` | `""` | no |
+| <a name="input_registry_password_secret_name"></a> [registry\_password\_secret\_name](#input\_registry\_password\_secret\_name) | Name of a Key Vault secret that holds the registry token (see registry\_password for the token type). The module builds the Key Vault reference and, with manage\_access, gives the web app's identity Key Vault Secrets User on that one secret, so the token never enters the Terraform state. The vault is registry\_key\_vault\_id, or blank = the vault this module creates (create\_secret\_vault); then add the secret there after the first apply and restart the app. Needs registry\_username. | `string` | `""` | no |
+| <a name="input_registry_username"></a> [registry\_username](#input\_registry\_username) | Username App Service pulls the image with. Needed for a private registry such as containers.vivicta.ghe.com (your exact login handle on vivicta.ghe.com). Blank = anonymous pull (Docker Hub, or a public package). | `string` | `""` | no |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group to create. Blank = `rg-<name>`. | `string` | `""` | no |
 | <a name="input_role_group_prefix"></a> [role\_group\_prefix](#input\_role\_group\_prefix) | Display name prefix of the role groups. Blank = `Cirrus Watch (<name>)`. | `string` | `""` | no |
 | <a name="input_scan_subscription_ids"></a> [scan\_subscription\_ids](#input\_scan\_subscription\_ids) | Limit the scans to these subscription IDs (AZURE\_SUBSCRIPTION\_IDS). Empty = every subscription the shared SPN can see, so new subscriptions under shared\_spn\_access are picked up automatically. | `list(string)` | `[]` | no |
@@ -624,7 +648,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="output_sso_app_client_id"></a> [sso\_app\_client\_id](#output\_sso\_app\_client\_id) | Client ID of the sign-in app registration. |
 | <a name="output_sso_app_request"></a> [sso\_app\_request](#output\_sso\_app\_request) | What to ask the app-registration team for when create\_sso\_app = false. |
 | <a name="output_sso_identity_client_id"></a> [sso\_identity\_client\_id](#output\_sso\_identity\_client\_id) | Client ID of the user-assigned identity used for secretless SSO. |
-| <a name="output_stable_deployment"></a> [stable\_deployment](#output\_stable\_deployment) | With continuous\_deployment: this web app's entry for the dashboard repo's STABLE\_DEPLOYMENTS variable (a JSON list of these), so Promote to stable restarts it. IDs and names only, no secret. null otherwise. |
+| <a name="output_stable_deployment"></a> [stable\_deployment](#output\_stable\_deployment) | With continuous\_deployment: this web app's identity and names for a GitHub Actions deploy job that restarts it (client ID, tenant ID, subscription ID, resource group, site name). IDs and names only, no secret. null otherwise. |
 | <a name="output_url"></a> [url](#output\_url) | Dashboard address. |
 | <a name="output_web_app_id"></a> [web\_app\_id](#output\_web\_app\_id) | Resource ID of the web app. |
 | <a name="output_web_app_principal_id"></a> [web\_app\_principal\_id](#output\_web\_app\_principal\_id) | Object ID of the web app's system-assigned identity (the shared SPN). Extra roles can go in shared\_spn\_access or be granted elsewhere with this ID. |

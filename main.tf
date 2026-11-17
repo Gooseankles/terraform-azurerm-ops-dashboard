@@ -8,12 +8,21 @@ locals {
   image_last = element(split("/", var.image), length(split("/", var.image)) - 1)
   image_ref  = strcontains(var.image, "@") || strcontains(local.image_last, ":") ? var.image : "${var.image}:latest"
 
-  # Docker's own rule: a first path part with a dot or a port, or "localhost", is a registry host
-  # (ghcr.io/org/app, myregistry.azurecr.io/app). Without one the image is on Docker Hub. App Service takes the
-  # registry and the image name apart, so the host is cut off the name.
-  image_parts    = split("/", var.image)
-  image_registry = length(local.image_parts) > 1 && (strcontains(local.image_parts[0], ".") || strcontains(local.image_parts[0], ":") || local.image_parts[0] == "localhost") ? local.image_parts[0] : ""
-  image_name     = local.image_registry != "" ? trimprefix(local.image_ref, "${local.image_registry}/") : local.image_ref
+  # A first path part with a dot or a port (or "localhost") is the registry host; App Service wants it apart from the
+  # image name. No host = Docker Hub.
+  image_parts    = split("/", local.image_ref)
+  image_first    = local.image_parts[0]
+  image_has_host = length(local.image_parts) > 1 && (strcontains(local.image_first, ".") || strcontains(local.image_first, ":") || local.image_first == "localhost")
+  registry_url   = local.image_has_host ? "https://${local.image_first}" : "https://index.docker.io"
+  image_name     = local.image_has_host ? join("/", slice(local.image_parts, 1, length(local.image_parts))) : local.image_ref
+
+  # The registry token: a literal or ready-made reference as given, or a Key Vault reference built from the secret's
+  # name in the given vault (registry_key_vault_id) or this module's own.
+  registry_secret_vault_name = var.registry_key_vault_id != "" ? element(split("/", var.registry_key_vault_id), 8) : local.secret_vault_name
+  registry_secret_vault_uri  = var.registry_key_vault_id != "" ? "https://${local.registry_secret_vault_name}.vault.azure.net" : (var.create_secret_vault ? trimsuffix(azurerm_key_vault.secrets[0].vault_uri, "/") : "")
+  registry_password = var.registry_password_secret_name != "" ? (
+    "@Microsoft.KeyVault(SecretUri=${local.registry_secret_vault_uri}/secrets/${var.registry_password_secret_name}/)"
+  ) : var.registry_password
 
   # A bare address becomes a /32 (or /128 for IPv6).
   allowed_ip_ranges = [for ip in var.allowed_ip_ranges : strcontains(ip, "/") ? ip : (strcontains(ip, ":") ? "${ip}/128" : "${ip}/32")]
@@ -94,7 +103,7 @@ resource "azurerm_linux_web_app" "this" {
     health_check_eviction_time_in_min = 10
 
     # All outbound traffic through the VNet (needs a NAT gateway or firewall
-    # there to reach Docker Hub and Azure); off = only private addresses.
+    # there to reach the image registry and Azure); off = only private addresses.
     vnet_route_all_enabled = var.private_network && var.vnet_route_all
 
     # Access restrictions: with any allowed IP or subnet, or app_private_endpoint, everything else is refused
@@ -124,11 +133,10 @@ resource "azurerm_linux_web_app" "this" {
     }
 
     application_stack {
-      docker_registry_url = local.image_registry != "" ? "https://${local.image_registry}" : "https://index.docker.io"
-      docker_image_name   = local.image_name
-      # Blank = pull without signing in (a public image).
+      docker_registry_url      = local.registry_url
+      docker_image_name        = local.image_name
       docker_registry_username = var.registry_username != "" ? var.registry_username : null
-      docker_registry_password = var.registry_password != "" ? var.registry_password : null
+      docker_registry_password = local.registry_password != "" ? local.registry_password : null
     }
   }
 
@@ -171,8 +179,8 @@ resource "azurerm_linux_web_app" "this" {
 
   lifecycle {
     precondition {
-      condition     = (var.registry_username == "") == (nonsensitive(var.registry_password) == "")
-      error_message = "registry_username and registry_password go together: set both for a private registry, or neither for a public image."
+      condition     = var.registry_password_secret_name == "" || var.registry_key_vault_id != "" || var.create_secret_vault
+      error_message = "registry_password_secret_name needs a vault: set registry_key_vault_id to an existing key vault, or leave create_secret_vault on so the module's own vault holds the secret."
     }
     precondition {
       condition     = !var.app_private_endpoint || var.private_network

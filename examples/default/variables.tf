@@ -32,26 +32,31 @@ variable "sku_name" {
 }
 
 variable "image" {
-  description = "Image and tag (or digest). Without a registry host it is a Docker Hub image."
+  description = "Container image: [registry-host/]repository with a tag or a digest (default :latest from the Vivicta registry; pin a version tag or @sha256:<digest> for production)."
   type        = string
-  default     = "trozity/azure-ops-dashboard:stable"
+  default     = "containers.vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard:latest"
 }
 
 variable "registry_username" {
-  description = "User name for a private image registry. Blank = no sign-in (a public image)."
+  description = "Username App Service pulls the image with (your login handle on vivicta.ghe.com). Blank = anonymous pull."
   type        = string
   default     = ""
 }
 
-variable "registry_password" {
-  description = "Password or read-only token for registry_username. Kept in the state; give it as TF_VAR_registry_password, not in a committed file."
+variable "registry_password_secret_name" {
+  description = "Name of the Key Vault secret that holds the registry token (a classic PAT with read:packages, authorized for SSO). You add the secret yourself; Terraform never writes it."
   type        = string
   default     = ""
-  sensitive   = true
+}
+
+variable "registry_key_vault_id" {
+  description = "Resource ID of an existing key vault that holds that secret. Blank = the vault the module creates (add the secret there after the first apply, then restart the app)."
+  type        = string
+  default     = ""
 }
 
 variable "continuous_deployment" {
-  description = "Let the dashboard repo's Promote to stable workflow restart this app through GitHub OIDC (no password), so it pulls the new :stable at once (output stable_deployment). false = the app pulls only on restart or image change."
+  description = "Let a GitHub Actions deploy job restart this app through GitHub OIDC (no password) so it pulls its image again (output stable_deployment). false = the app pulls only on restart or image change."
   type        = bool
   default     = false
 }

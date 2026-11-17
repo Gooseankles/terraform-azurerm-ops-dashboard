@@ -3,7 +3,7 @@
 What changed in each release of the Cirrus Watch Terraform module, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and releases follow [Semantic Versioning](https://semver.org/):
 each is a git tag `v<major>.<minor>.<patch>` to pin with `?ref=`. The app has its own
-[changelog](https://github.com/Gooseankles/cirrus-watch/blob/main/CHANGELOG.md).
+[changelog](https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard/blob/main/CHANGELOG.md).
 
 ## Upgrading
 
@@ -49,16 +49,29 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+### Changed
+
+- **The default `image` is `containers.vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard:latest`** (was
+  `trozity/azure-ops-dashboard:stable` on Docker Hub). A root configuration that never set `image` switches registry
+  on the next apply, and the app cannot pull it until `registry_username` and `registry_password` are set. To keep the
+  old image, set `image = "trozity/azure-ops-dashboard:<version>"`.
+- The registry host is taken from the first part of `image` when it has a dot or a port, and App Service gets the
+  host and the image name apart. Before, the host was always Docker Hub, so an image with a host did not work.
+- `deploy_github_subject` defaults to `repo:vivicta-public-cloud/cirrus-ops-dashboard:environment:production`, and the
+  docs no longer mention the Promote to stable workflow, `:stable` or `STABLE_DEPLOYMENTS`: the dashboard repo has no
+  deploy workflow now. The `stable_deployment` output keeps its name.
+- The README describes the registry, its token and image digests; the cosign section is gone because the images are
+  not signed.
+
 ### Added
 
-- `registry_username` and `registry_password`: sign in to a private image registry, for example a copy of the
-  image in GitHub Container Registry. Both or neither; blank means a public image, as before. The password is kept
-  in the state and in the web app's settings. README, An image in another registry.
-
-### Fixed
-
-- `image` with a registry host (`ghcr.io/org/app`, `myregistry.azurecr.io/app`) is pulled from that registry. It
-  was always sent to Docker Hub, so such an image could not be pulled. Docker Hub images are not affected.
+- Inputs `registry_username` and `registry_password` (sensitive): the login App Service pulls a private image with. A
+  Key Vault reference works as the password and keeps the token out of the state.
+- Inputs `registry_password_secret_name` and `registry_key_vault_id`: the registry token lives in a Key Vault secret
+  (the module's own vault, or an existing one by resource ID). The module builds the Key Vault reference and, for an
+  existing vault with `manage_access`, gives the web app's identity Key Vault Secrets User on that one secret.
+  Nothing is hard-coded: the secret name is yours, and Terraform never writes the token.
+- `tests/image.tftest.hcl`: the registry host split, a digest, an image from Docker Hub and the password check.
 
 ## [1.10.1] - 2026-11-08
 
@@ -309,24 +322,24 @@ Read this before you raise `?ref=`.
 - The module at the repo root, split from the app repo, with a root configuration in `examples/default` and
   `docs/permissions.md`.
 
-[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.1...HEAD
-[1.10.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.0...v1.10.1
-[1.10.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.9.0...v1.10.0
-[1.9.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.8.0...v1.9.0
-[1.8.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.7.0...v1.8.0
-[1.7.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.6.1...v1.7.0
-[1.6.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.6.0...v1.6.1
-[1.6.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.4...v1.6.0
-[1.5.4]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.3...v1.5.4
-[1.5.3]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.2...v1.5.3
-[1.5.2]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.1...v1.5.2
-[1.5.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.5.0...v1.5.1
-[1.5.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.4.0...v1.5.0
-[1.4.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.3.1...v1.4.0
-[1.3.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.3.0...v1.3.1
-[1.3.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.2.1...v1.3.0
-[1.2.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.2.0...v1.2.1
-[1.2.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.1.0...v1.2.0
-[1.1.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.0.1...v1.1.0
-[1.0.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/releases/tag/v1.0.0
+[Unreleased]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.10.1...HEAD
+[1.10.1]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.10.0...v1.10.1
+[1.10.0]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.9.0...v1.10.0
+[1.9.0]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.8.0...v1.9.0
+[1.8.0]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.7.0...v1.8.0
+[1.7.0]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.6.1...v1.7.0
+[1.6.1]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.6.0...v1.6.1
+[1.6.0]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.5.4...v1.6.0
+[1.5.4]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.5.3...v1.5.4
+[1.5.3]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.5.2...v1.5.3
+[1.5.2]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.5.1...v1.5.2
+[1.5.1]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.5.0...v1.5.1
+[1.5.0]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.4.0...v1.5.0
+[1.4.0]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.3.1...v1.4.0
+[1.3.1]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.3.0...v1.3.1
+[1.3.0]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.2.1...v1.3.0
+[1.2.1]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.2.0...v1.2.1
+[1.2.0]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.1.0...v1.2.0
+[1.1.0]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.0.1...v1.1.0
+[1.0.1]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/compare/v1.0.0...v1.0.1
+[1.0.0]: https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module/releases/tag/v1.0.0

@@ -1,9 +1,9 @@
 # --- Continuous deployment: GitHub Actions restarts the web app, no publishing password ---
 #
-# With continuous_deployment the dashboard repo's "Promote to stable" workflow signs in to Azure as this identity
-# through GitHub's OIDC token (a federated credential, so there is no secret anywhere) and restarts the web app. A
-# restart makes App Service pull the image again, so it picks up the moved :stable tag. The identity may only read and
-# restart this one web app.
+# With continuous_deployment a GitHub Actions deploy job signs in to Azure as this identity through GitHub's OIDC
+# token (a federated credential, so there is no secret anywhere) and restarts the web app. A restart makes App Service
+# pull the image again, so it picks up a moved tag such as :latest. The identity may only read and restart this one
+# web app.
 
 resource "azurerm_user_assigned_identity" "deploy" {
   count               = var.continuous_deployment ? 1 : 0
@@ -14,7 +14,7 @@ resource "azurerm_user_assigned_identity" "deploy" {
 }
 
 # Trusts tokens GitHub issues to workflow runs whose subject matches exactly (default: the dashboard repo's
-# "stable" environment, which the Promote to stable workflow's deploy job uses).
+# "production" environment on vivicta.ghe.com).
 resource "azurerm_federated_identity_credential" "deploy_github" {
   count                     = var.continuous_deployment ? 1 : 0
   name                      = "github-deploy"

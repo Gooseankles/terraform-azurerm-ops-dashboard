@@ -69,7 +69,7 @@ output "web_app_id" {
 }
 
 output "stable_deployment" {
-  description = "With continuous_deployment: this app's entry for the dashboard repo's STABLE_DEPLOYMENTS variable (JSON list). null otherwise."
+  description = "With continuous_deployment: this app's deploy identity and names for a GitHub Actions restart job. null otherwise."
   value       = module.dashboard.stable_deployment
 }
 

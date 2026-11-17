@@ -146,12 +146,12 @@ and a federated credential for the user-assigned identity, so it has no secret.
 
 ## Deploy identity (continuous deployment)
 
-Only with `continuous_deployment = true`: the user-assigned identity `id-<name>-deploy`, which the dashboard repo's
-Promote to stable workflow signs in as (GitHub OIDC, federated credential for `deploy_github_subject`; no secret).
+Only with `continuous_deployment = true`: the user-assigned identity `id-<name>-deploy`, which a GitHub Actions deploy job
+signs in as (GitHub OIDC, federated credential for `deploy_github_subject`; no secret).
 
 | Role | On | Used for |
 | --- | --- | --- |
-| Custom role `Cirrus Watch deploy (<name>)`: `Microsoft.Web/sites/read`, `Microsoft.Web/sites/restart/action` | The web app only | Restart it after `:stable` moves, so App Service pulls the image again |
+| Custom role `Cirrus Watch deploy (<name>)`: `Microsoft.Web/sites/read`, `Microsoft.Web/sites/restart/action` | The web app only | Restart it so App Service pulls the image again |
 
 Nothing else: it cannot read or change app settings, see publishing credentials or reach any data. The built-in
 Website Contributor was not used because it could read the app settings (the session secret and admin password).

@@ -1,6 +1,6 @@
 # Deploys the dashboard with the module at the root of this repo. To use the
 # module from another configuration instead:
-#   source = "github.com/Gooseankles/terraform-azurerm-ops-dashboard?ref=v1.10.1"
+#   source = "git::https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard-tf-module.git?ref=v1.10.1"
 module "dashboard" {
   source = "../.."
 
@@ -10,7 +10,10 @@ module "dashboard" {
   sku_name              = var.sku_name
   image                 = var.image
   registry_username     = var.registry_username
-  registry_password     = var.registry_password
+
+  registry_password_secret_name = var.registry_password_secret_name
+  registry_key_vault_id         = var.registry_key_vault_id
+
   continuous_deployment = var.continuous_deployment
   shared_spn_access = concat(
     var.shared_spn_access,

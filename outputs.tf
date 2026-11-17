@@ -9,7 +9,7 @@ output "resource_group_name" {
 }
 
 output "stable_deployment" {
-  description = "With continuous_deployment: this web app's entry for the dashboard repo's STABLE_DEPLOYMENTS variable (a JSON list of these), so Promote to stable restarts it. IDs and names only, no secret. null otherwise."
+  description = "With continuous_deployment: this web app's identity and names for a GitHub Actions deploy job that restarts it (client ID, tenant ID, subscription ID, resource group, site name). IDs and names only, no secret. null otherwise."
   value = var.continuous_deployment ? {
     clientId       = azurerm_user_assigned_identity.deploy[0].client_id
     tenantId       = azurerm_user_assigned_identity.deploy[0].tenant_id

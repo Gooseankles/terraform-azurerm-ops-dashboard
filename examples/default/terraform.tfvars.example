@@ -7,8 +7,14 @@ location        = "norwayeast"
 
 # resource_group_name = ""                                   # blank = rg-<name>
 # sku_name            = "B1"                                 # App Service plan size; B1 is enough
-# image               = "trozity/azure-ops-dashboard:stable" # :latest for every push, or pin a version, e.g. :<version from VERSION>
-# registry_username   = ""                                   # only for a private registry, e.g. image = "ghcr.io/<org>/<repo>@sha256:..."; the token goes in TF_VAR_registry_password
+# image               = "containers.vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard:latest" # or pin :<version>, or @sha256:<digest> for production
+# The registry is private: App Service pulls with your login handle on vivicta.ghe.com and a classic token with
+# read:packages only, authorized for SSO. Put the token in a Key Vault secret by hand (Terraform never writes it)
+# and give its name here. Which vault: blank registry_key_vault_id = the vault this module creates (add the secret
+# after the first apply, then restart the app); or the resource ID of a vault you already have.
+registry_username             = "your-handle"
+registry_password_secret_name = "registry-pat"
+# registry_key_vault_id       = "/subscriptions/<id>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/<name>"
 # tags                = { Owner = "it-ops" }
 
 # --- Scan identity (the web app's own identity, the shared SPN) ---
