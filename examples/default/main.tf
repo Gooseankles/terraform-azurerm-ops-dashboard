@@ -4,12 +4,12 @@
 module "dashboard" {
   source = "../.."
 
-  name                  = var.name
-  location              = var.location
-  resource_group_name   = var.resource_group_name
-  sku_name              = var.sku_name
-  image                 = var.image
-  registry_username     = var.registry_username
+  name                = var.name
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  sku_name            = var.sku_name
+  image               = var.image
+  registry_username   = var.registry_username
 
   registry_password_secret_name = var.registry_password_secret_name
   registry_key_vault_id         = var.registry_key_vault_id

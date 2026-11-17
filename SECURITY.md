@@ -1,7 +1,7 @@
 # Security policy
 
-This module deploys [Cirrus Watch](https://github.com/Gooseankles/cirrus-watch) into an Azure subscription. The
-app has its own [security policy](https://github.com/Gooseankles/cirrus-watch/blob/main/SECURITY.md); this one
+This module deploys [Cirrus Watch](https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard) into an Azure subscription. The
+app has its own [security policy](https://vivicta.ghe.com/vivicta-public-cloud/cirrus-ops-dashboard/blob/main/SECURITY.md); this one
 covers the Terraform code in this repository.
 
 ## Reporting a vulnerability
