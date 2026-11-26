@@ -49,6 +49,8 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-26
+
 ### Added
 
 - Input `allowed_ips`: named IPs or CIDR ranges for the web app's access restrictions, as a map of name to address.
@@ -305,7 +307,8 @@ Read this before you raise `?ref=`.
 - The module at the repo root, split from the app repo, with a root configuration in `examples/default` and
   `docs/permissions.md`.
 
-[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.1...HEAD
+[Unreleased]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.1...v1.11.0
 [1.10.1]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/Gooseankles/terraform-azurerm-ops-dashboard/compare/v1.8.0...v1.9.0
