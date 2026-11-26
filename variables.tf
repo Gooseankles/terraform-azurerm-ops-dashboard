@@ -300,6 +300,25 @@ variable "allowed_ip_ranges" {
   }
 }
 
+variable "allowed_ips" {
+  description = <<-EOT
+    Like allowed_ip_ranges, but each IP or CIDR range has a name, which becomes the rule name under the web app's
+    Access restrictions instead of allow-ip-N, e.g. { "office-oslo" = "203.0.113.10", "vpn" = "198.51.100.0/24" }.
+    Names: 1 to 32 letters, digits, dots, hyphens or underscores. Can be used together with allowed_ip_ranges.
+  EOT
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for name in keys(var.allowed_ips) : can(regex("^[A-Za-z0-9._-]{1,32}$", name))])
+    error_message = "Each allowed_ips name must be 1 to 32 letters, digits, dots, hyphens or underscores, e.g. office-oslo."
+  }
+  validation {
+    condition     = alltrue([for ip in values(var.allowed_ips) : can(cidrhost(strcontains(ip, "/") ? ip : (strcontains(ip, ":") ? "${ip}/128" : "${ip}/32"), 0))])
+    error_message = "Each allowed_ips value must be an IP address or a CIDR range, e.g. 203.0.113.10 or 198.51.100.0/24."
+  }
+}
+
 variable "allowed_subnet_ids" {
   description = "Subnet resource IDs whose traffic may reach the web app (the subnet needs the Microsoft.Web service endpoint). Used together with allowed_ip_ranges."
   type        = list(string)

@@ -10,8 +10,11 @@ locals {
 
   # A bare address becomes a /32 (or /128 for IPv6).
   allowed_ip_ranges = [for ip in var.allowed_ip_ranges : strcontains(ip, "/") ? ip : (strcontains(ip, ":") ? "${ip}/128" : "${ip}/32")]
+  allowed_ips       = { for name, ip in var.allowed_ips : name => strcontains(ip, "/") ? ip : (strcontains(ip, ":") ? "${ip}/128" : "${ip}/32") }
+  # Named and unnamed IP rules together.
+  allowed_ip_count = length(local.allowed_ip_ranges) + length(local.allowed_ips)
   # Allowed IPs or subnets, or app_private_endpoint: the site refuses every other network (public access stays on).
-  restricted = length(var.allowed_ip_ranges) + length(var.allowed_subnet_ids) > 0 || local.app_private
+  restricted = local.allowed_ip_count + length(var.allowed_subnet_ids) > 0 || local.app_private
 }
 
 data "azuread_client_config" "current" {}
@@ -106,6 +109,17 @@ resource "azurerm_linux_web_app" "this" {
       }
     }
 
+    # Named IPs (allowed_ips), in key order; the map key is the rule name.
+    dynamic "ip_restriction" {
+      for_each = [for name in sort(keys(local.allowed_ips)) : { name = name, ip = local.allowed_ips[name] }]
+      content {
+        name       = ip_restriction.value.name
+        action     = "Allow"
+        priority   = 300 + ip_restriction.key
+        ip_address = ip_restriction.value.ip
+      }
+    }
+
     dynamic "ip_restriction" {
       for_each = var.allowed_subnet_ids
       content {
@@ -169,8 +183,8 @@ resource "azurerm_linux_web_app" "this" {
       error_message = "public_network_access = false needs a private endpoint: private_network = true with private_access = \"private_endpoint\" or app_private_endpoint = true."
     }
     precondition {
-      condition     = !local.app_public_off || length(var.allowed_ip_ranges) + length(var.allowed_subnet_ids) == 0
-      error_message = "With public_network_access = false and app_private_endpoint the web app has no public address, so allowed_ip_ranges and allowed_subnet_ids would do nothing: leave them empty."
+      condition     = !local.app_public_off || local.allowed_ip_count + length(var.allowed_subnet_ids) == 0
+      error_message = "With public_network_access = false and app_private_endpoint the web app has no public address, so allowed_ip_ranges, allowed_ips and allowed_subnet_ids would do nothing: leave them empty."
     }
   }
 }

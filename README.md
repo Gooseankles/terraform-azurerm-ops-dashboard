@@ -63,9 +63,19 @@ allowed_ip_ranges  = ["203.0.113.10", "198.51.100.0/24"]  # office / VPN egress 
 allowed_subnet_ids = []                                   # optional: subnets with the Microsoft.Web service endpoint
 ```
 
+To give the IPs names, use `allowed_ips` instead (or as well). The name becomes the rule name under the web app's
+Access restrictions in the portal, in place of `allow-ip-1`, `allow-ip-2` and so on:
+
+```hcl
+allowed_ips = {
+  "office-oslo" = "203.0.113.10"     # 1 to 32 letters, digits, dots, hyphens or underscores
+  "vpn"         = "198.51.100.0/24"
+}
+```
+
 Any entry turns the default action to Deny, so every other address gets a 403 from App Service before it reaches
 the app. The Kudu (scm) site follows the same rules. Sign-in keeps working because the Entra redirect goes through
-the user's own browser. Empty lists (the default) leave the site open to the internet, with sign-in still required.
+the user's own browser. Empty lists and maps (the default) leave the site open to the internet, with sign-in still required.
 
 ## Customer tenants
 
@@ -550,6 +560,7 @@ Written by [terraform-docs](https://terraform-docs.io) from `variables.tf`, `out
 | <a name="input_alert_emails"></a> [alert\_emails](#input\_alert\_emails) | Email addresses for alarms on the dashboard's own App Service (CPU, memory, server errors, health check), sent by Azure Monitor. Empty = no alerts are created. Each alert rule costs about 0.10 USD a month. | `list(string)` | `[]` | no |
 | <a name="input_alert_memory_pct"></a> [alert\_memory\_pct](#input\_alert\_memory\_pct) | Alarm when the plan's average memory stays above this percentage for 15 minutes. | `number` | `85` | no |
 | <a name="input_allowed_ip_ranges"></a> [allowed\_ip\_ranges](#input\_allowed\_ip\_ranges) | Public IPs or CIDR ranges that may reach the web app ("Enabled from selected virtual networks and IP<br/>addresses"), e.g. ["203.0.113.10", "198.51.100.0/24"]. A bare address means that one address. Empty, together<br/>with an empty allowed\_subnet\_ids, = open to the internet (sign-in still required). | `list(string)` | `[]` | no |
+| <a name="input_allowed_ips"></a> [allowed\_ips](#input\_allowed\_ips) | Like allowed\_ip\_ranges, but each IP or CIDR range has a name, which becomes the rule name under the web app's<br/>Access restrictions instead of allow-ip-N, e.g. { "office-oslo" = "203.0.113.10", "vpn" = "198.51.100.0/24" }.<br/>Names: 1 to 32 letters, digits, dots, hyphens or underscores. Can be used together with allowed\_ip\_ranges. | `map(string)` | `{}` | no |
 | <a name="input_allowed_subnet_ids"></a> [allowed\_subnet\_ids](#input\_allowed\_subnet\_ids) | Subnet resource IDs whose traffic may reach the web app (the subnet needs the Microsoft.Web service endpoint). Used together with allowed\_ip\_ranges. | `list(string)` | `[]` | no |
 | <a name="input_app_private_dns_zone_id"></a> [app\_private\_dns\_zone\_id](#input\_app\_private\_dns\_zone\_id) | Existing privatelink.azurewebsites.net private DNS zone (e.g. in a hub), already linked to the VNets that must resolve the app. Blank = create one and link it to the VNet. | `string` | `""` | no |
 | <a name="input_app_private_endpoint"></a> [app\_private\_endpoint](#input\_app\_private\_endpoint) | Give the web app itself an inbound private endpoint in the VNet. Public network access stays on, but the access<br/>restrictions deny every network except allowed\_ip\_ranges and allowed\_subnet\_ids (the scm site too). Needs private\_network = true. People then need a<br/>network path to the VNet (VPN, ExpressRoute, peering) and DNS that resolves privatelink.azurewebsites.net (the<br/>zone is created and linked to the VNet unless app\_private\_dns\_zone\_id is set). | `bool` | `false` | no |
