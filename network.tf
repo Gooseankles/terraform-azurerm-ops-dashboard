@@ -12,7 +12,7 @@
 #
 # app_private_endpoint = true also gives the web app itself an inbound private
 # endpoint; its public network access stays on, with access restrictions that
-# deny every network except allowed_ip_ranges and allowed_subnet_ids.
+# deny every network except allowed_ip_ranges, allowed_ips and allowed_subnet_ids.
 
 locals {
   use_private_endpoints = var.private_access == "private_endpoint"

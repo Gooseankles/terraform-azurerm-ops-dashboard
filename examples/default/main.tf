@@ -47,6 +47,7 @@ module "dashboard" {
   admin_password      = var.admin_password
   extra_app_settings  = var.extra_app_settings
   allowed_ip_ranges   = var.allowed_ip_ranges
+  allowed_ips         = var.allowed_ips
   allowed_subnet_ids  = var.allowed_subnet_ids
 
   customers          = var.customers

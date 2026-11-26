@@ -49,6 +49,13 @@ Read this before you raise `?ref=`.
 
 ## [Unreleased]
 
+### Added
+
+- Input `allowed_ips`: named IPs or CIDR ranges for the web app's access restrictions, as a map of name to address.
+  The name becomes the rule name in the portal instead of `allow-ip-N`. `allowed_ip_ranges` keeps working, and the
+  two can be used together.
+- `tests/access_restrictions.tftest.hcl`: named and unnamed IP rules, bare addresses and the name check.
+
 ## [1.10.1] - 2026-11-08
 
 ### Added

@@ -244,6 +244,12 @@ variable "allowed_ip_ranges" {
   default     = []
 }
 
+variable "allowed_ips" {
+  description = "Named public IPs or CIDR ranges that may reach the web app; the name becomes the access restriction rule name."
+  type        = map(string)
+  default     = {}
+}
+
 variable "allowed_subnet_ids" {
   description = "Subnet resource IDs that may reach the web app (needs the Microsoft.Web service endpoint on the subnet)."
   type        = list(string)
